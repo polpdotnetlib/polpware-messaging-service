@@ -43,7 +43,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
                 if (ea.BasicProperties.CorrelationId == CorrelationId)
                 {
                     // todo: 
-                    var payload = Runtime.Serialization.ByteConvertor.ByteArrayToObject(body);
+                    var payload = Runtime.Serialization.ByteConvertor.ByteArrayToObject(body.ToArray());
 
                     var data = ReturnAdaptor(payload);
                     ReturnHandler?.Invoke(data);
