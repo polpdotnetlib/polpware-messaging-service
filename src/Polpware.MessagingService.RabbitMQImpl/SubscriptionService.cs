@@ -62,7 +62,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
                     // todo: Deserialize into an object
                     var body = message.Body;
                     // todo: 
-                    var payload = Runtime.Serialization.ByteConvertor.ByteArrayToObject(body);
+                    var payload = Runtime.Serialization.ByteConvertor.ByteArrayToObject(body.ToArray());
                     var data = _inDataAdaptor(payload);
                     var code = _inDataHandler(data.Item1, data.Item2);
                     PostHandling(code, data.Item1, message);
