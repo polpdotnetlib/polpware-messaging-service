@@ -1,11 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="..\common.props" />
+
   <PropertyGroup>
     <TargetFramework>netstandard1.0</TargetFramework>
     <Description>Defines the interfaces for messaging service, including subscription, broadcasting, and sending messages.</Description>
-    <Copyright>Polpware</Copyright>
-    <Version>2.2.1</Version>
-    <Authors>Polpware</Authors>
   </PropertyGroup>
 
 </Project>
