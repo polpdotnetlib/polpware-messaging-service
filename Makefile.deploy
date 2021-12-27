@@ -1,0 +1,21 @@
+OutputDir:=nugets
+
+GeneratedPackages = $(wildcard $(OutputDir)/*.nupkg)
+PackageBaseNames:=$(basename $(GeneratedPackages))
+PackagePubNames:=$(addsuffix .pub,$(PackageBaseNames))
+
+%.pub:
+ifndef NugetSource
+	@echo "Please provide the nuget source destination"
+else
+	@echo "-----------------------------------------"
+	dotnet nuget push "$(addsuffix .nupkg,$(basename $@))" --source "$(NugetSource)" --skip-duplicate    
+	@echo "*************Deployed successfully******************"
+endif
+
+deploy: $(PackagePubNames)
+	@echo "Start to publish"
+
+.PHONY: deploy
+
+

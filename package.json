@@ -1,0 +1,15 @@
+{
+    "name": "toolset",
+    "version": "0.1.0",
+    "scripts": {
+        "bump": "gulp bump"
+    },
+    "private": true,
+    "dependencies": {
+    },
+    "devDependencies": {
+        "cpx": "^1.5.0",
+        "gulp": "^4.0.2",
+        "gulp-bump": "^3.2.0"
+    }
+}
