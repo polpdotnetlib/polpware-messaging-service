@@ -44,8 +44,8 @@ namespace Polpware.MessagingService.RabbitMQImpl
         {
             base.PrepareProperties();
 
-            _props.CorrelationId = _RPCInitHelper.CorrelationId;
-            _props.ReplyTo = _RPCInitHelper.CallbackQueueName;
+            Props.CorrelationId = _RPCInitHelper.CorrelationId;
+            Props.ReplyTo = _RPCInitHelper.CallbackQueueName;
         }
 
         public override bool ReBuildConnection()

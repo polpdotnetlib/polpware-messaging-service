@@ -7,16 +7,22 @@ namespace Polpware.MessagingService.RabbitMQImpl
 {
     public class DispatchingService<TOut> : AbstractConnection, IDispatchingService<TOut> where TOut : class
     {
-        protected readonly string _exchange;
-        protected IBasicProperties _props;
+        protected readonly string ExchangeName;
+        protected IBasicProperties Props;
 
-        protected Func<TOut, object> _outDataAdpator;
+        protected Func<TOut, object> OutDataAdpator;
 
-        public DispatchingService(ConnectionFactory connectionFactory, string exchange, IDictionary<string, object> settings)
-            : base(connectionFactory, settings)
+        public DispatchingService(IConnectionPool connectionPool,
+            IChannelPool channelPool,
+            string connectionName,
+            string channelName,
+            string exchange, 
+            IDictionary<string, object> settings)
+            : base(connectionPool, channelPool, connectionName, channelName, settings)
         {
-            _outDataAdpator = x => x;
-            _exchange = exchange;
+            OutDataAdpator = x => x;
+
+            ExchangeName = exchange;
 
             Init();
 
@@ -25,7 +31,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
         public void SetDataAdaptor<U>(Func<TOut, U> f) where U : class
         {
-            _outDataAdpator = f;
+            OutDataAdpator = f;
         }
 
         /// <summary>
@@ -36,40 +42,27 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// <summary>
         /// Properties to be used for sending out messages.
         /// </summary>
-        protected virtual void PrepareProperties()
+        protected virtual void PrepareProperties(IModel channel)
         {
-            _props = existingConnection.Channel.CreateBasicProperties();
-            _props.Persistent = (bool)_settings["persistent"];
+            var properties = channel.CreateBasicProperties();
+            properties.Persistent = (bool)Settings["persistent"];
         }
 
         public virtual bool DispatchMessage(TOut data, string routingKey)
         {
-            try
-            {
 
-                existingConnection.Channel.ExchangeDeclare(_exchange, "direct");
+            return PublishSafely((channel) => {
+                channel.ExchangeDeclare(ExchangeName, "direct");
+                PrepareProperties(channel);
 
-                var x = _outDataAdpator(data);
+                var x = OutDataAdpator(data);
                 var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
 
-                existingConnection.Channel.BasicPublish(exchange: _exchange,
+                channel.BasicPublish(exchange: ExchangeName,
                                      routingKey: routingKey,
-                                     basicProperties: _props,
+                                     basicProperties: Props,
                                      body: bytes);
-                // Ok
-                return true;
-            }
-            catch (Exception e)
-            {
-                // todo: Handle exception
-
-                if (ReBuildConnection())
-                {
-                    return this.DispatchMessage(data, routingKey);
-                }
-
-                throw new MessagingServiceException(e, 0, "");
-            }
+            });
         }
 
         public override bool ReBuildConnection()

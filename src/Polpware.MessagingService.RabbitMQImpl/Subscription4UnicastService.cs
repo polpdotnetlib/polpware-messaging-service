@@ -16,9 +16,9 @@ namespace Polpware.MessagingService.RabbitMQImpl
         protected override void BuildOrBindQueue()
         {
             existingConnection.Channel.QueueDeclare(queue: existingConnection.QueueName,
-                durable: (bool)_settings["durable"],
-                exclusive: (bool)_settings["exclusive"],
-                autoDelete: (bool)_settings["autoDelete"],
+                durable: (bool)Settings["durable"],
+                exclusive: (bool)Settings["exclusive"],
+                autoDelete: (bool)Settings["autoDelete"],
                 arguments: null);
 
             existingConnection.Channel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);

@@ -99,7 +99,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
             };
 
             existingConnection.Channel.BasicConsume(queue: existingConnection.QueueName, 
-                autoAck: (bool)_settings["autoAck"],
+                autoAck: (bool)Settings["autoAck"],
                 consumer:consumer);
         }
 

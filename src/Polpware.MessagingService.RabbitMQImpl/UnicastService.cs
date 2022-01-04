@@ -41,7 +41,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         protected virtual void PrepareProperties()
         {
             _props = existingConnection.Channel.CreateBasicProperties();
-            _props.Persistent = (bool)_settings["persistent"];
+            _props.Persistent = (bool)Settings["persistent"];
         }
 
         public virtual bool SendMessage(T data)
@@ -49,9 +49,9 @@ namespace Polpware.MessagingService.RabbitMQImpl
             try
             {
                 existingConnection.Channel.QueueDeclare(queue: existingConnection.QueueName,
-                    durable: (bool)_settings["durable"],
-                    exclusive: (bool)_settings["exclusive"],
-                    autoDelete: (bool)_settings["autoDelete"],
+                    durable: (bool)Settings["durable"],
+                    exclusive: (bool)Settings["exclusive"],
+                    autoDelete: (bool)Settings["autoDelete"],
                     arguments: null);
 
                 var x = _dataAdpator(data);

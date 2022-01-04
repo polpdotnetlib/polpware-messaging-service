@@ -38,9 +38,9 @@ namespace Polpware.MessagingService.RabbitMQImpl
             else
             {
                 existingConnection.QueueName = existingConnection.Channel.QueueDeclare(_queue, 
-                    durable: (bool)_settings["durable"],
-                    exclusive: (bool)_settings["exclusive"],
-                    autoDelete: (bool)_settings["autoDelete"]).QueueName;
+                    durable: (bool)Settings["durable"],
+                    exclusive: (bool)Settings["exclusive"],
+                    autoDelete: (bool)Settings["autoDelete"]).QueueName;
             }
 
             existingConnection.Channel.QueueBind(queue: existingConnection.QueueName,

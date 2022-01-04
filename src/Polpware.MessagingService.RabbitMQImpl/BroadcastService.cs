@@ -7,53 +7,44 @@ namespace Polpware.MessagingService.RabbitMQImpl
 {
     public class BroadcastService<TOut> : AbstractConnection, IBroadcastService<TOut> where TOut : class
     {
-        private readonly string _exchange;
+        protected string ExchangeName { get; }
 
-        protected Func<TOut, object> _outDataAdpator;
+        protected Func<TOut, object> OutDataAdpator;
 
-        public BroadcastService(ConnectionFactory connectionFactory, string exchange, IDictionary<string, object> settings) 
-            : base(connectionFactory, settings)
+        public BroadcastService(IConnectionPool connectionPool,
+            IChannelPool channelPool, 
+            string connectionName,
+            string channelName,
+            string exchange, 
+            IDictionary<string, object> settings) 
+            : base(connectionPool, channelPool, connectionName, channelName, settings)
         {
-            _outDataAdpator = x => x;
+            OutDataAdpator = x => x;
 
-            _exchange = exchange;
+            ExchangeName = exchange;
         }
 
         public void SetDataAdaptor<U>(Func<TOut, U> f) where U : class
         {
-            _outDataAdpator = f;
+            OutDataAdpator = f;
         }
 
         public bool BroadcastMessage(TOut data)
         {
-            try {
+            return PublishSafely((channel) => {
+                channel.ExchangeDeclare(ExchangeName, "fanout");
+                var properties = channel.CreateBasicProperties();
+                properties.Persistent = (bool)Settings["persistent"];
 
-                existingConnection.Channel.ExchangeDeclare(_exchange, "fanout");
-
-                var properties = existingConnection.Channel.CreateBasicProperties();
-                properties.Persistent = (bool)_settings["persistent"];
-
-                var x = _outDataAdpator(data);
+                var x = OutDataAdpator(data);
                 var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
 
-                existingConnection.Channel.BasicPublish(exchange: _exchange,
+                channel.BasicPublish(exchange: ExchangeName,
                                      routingKey: "",
                                      basicProperties: properties,
                                      body: bytes);
-                // Ok
-                return true;
-            }
-            catch (Exception e)
-            {
-                // todo: Handle exception
+            });
 
-                if (ReBuildConnection())
-                {
-                    return this.BroadcastMessage(data);
-                }
-
-                throw new MessagingServiceException(e, 0, "");
-            }
         }
     }
 }

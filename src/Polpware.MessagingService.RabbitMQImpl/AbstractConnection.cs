@@ -1,62 +1,103 @@
 ﻿using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
 using System;
 using System.Collections.Generic;
 
 namespace Polpware.MessagingService.RabbitMQImpl
 {
-    public abstract class AbstractConnection : IDisposable
+    public abstract class AbstractConnection
     {
-        protected ConnectionBuilder existingConnection { get; private set; }
-        protected readonly ReconnectionTracker reconnectionTracker;
+        protected IConnectionPool ConnectionPool { get; }
+        protected IChannelPool ChannelPool { get; set; }
 
-        protected readonly IDictionary<string, object> _settings;
+        protected string ConnectionName { get; }
+        protected string ChannelName { get; }
 
-        private readonly ConnectionFactory _connectionFactory;
+        protected readonly IDictionary<string, object> Settings;
 
-        public AbstractConnection(ConnectionFactory connectionFactory, IDictionary<string, object> settings)
+        protected readonly ReconnectionTracker ReconnectionState;
+
+        public AbstractConnection(IConnectionPool connectionPool,
+            IChannelPool channelPool, 
+            string connectionName,
+            string channelName,
+            IDictionary<string, object> settings)
         {
-            reconnectionTracker = new ReconnectionTracker();
-            _connectionFactory = connectionFactory;
+            ConnectionPool = connectionPool;
+            ConnectionName = connectionName;
+            ChannelPool = channelPool;
+            ChannelName = channelName;
+
+            ReconnectionState = new ReconnectionTracker();
 
             // Ensuring settings are set
-            _settings = settings ?? new Dictionary<string, object>();
+            Settings = settings ?? new Dictionary<string, object>();
+            // Follow Json
             foreach (var s in new string[] { "durable", "exclusive", "autoDelete", "autoAck", "persistent" })
             {
-                if (!_settings.ContainsKey(s))
+                if (!Settings.ContainsKey(s))
                 {
-                    _settings[s] = false;
+                    Settings[s] = false;
                 }
             }
-
-            existingConnection = new ConnectionBuilder(connectionFactory);
         }
 
-        public void Dispose()
+        public virtual bool PublishSafely(Action<IModel> action)
         {
-            existingConnection?.Dispose();
-        }
+            var flag = false;
 
-        public virtual bool ReBuildConnection()
-        {
-            // Dispose whatever we have before.
+            if (!ReconnectionState.CanReconnect)
+            {
+                return flag;
+            }
+
+            var channelDecorator = ChannelPool.Get(ChannelName, ConnectionName);
+
             try
             {
-                this.Dispose();
-            } catch (Exception)
+                channelDecorator.PublishSafely(action);
+                ReconnectionState.Reset();
+                flag = true;
+            }
+            catch (UnexpectedConnectionDecoratorException)
             {
+                ConnectionPool.Clear();
 
+                ReconnectionState.BumpCounter();
+            }
+            catch (UnexpectedChannelDecoratorException)
+            {
+                ChannelPool.Clear();
+
+                ReconnectionState.BumpCounter();
+            }
+            catch (AlreadyClosedException)
+            {
+                ReconnectionState.BumpCounter();
+
+                ChannelPool.Clear();
+                ConnectionPool.Clear();
+            }
+            catch (BrokerUnreachableException)
+            {
+                ReconnectionState.BumpCounter();
+
+                ChannelPool.Clear();
+                ConnectionPool.Clear();
+            }
+            catch (ConnectFailureException)
+            {
+                ReconnectionState.BumpCounter();
+
+                ChannelPool.Clear();
+                ConnectionPool.Clear();
+            }
+            catch (Exception)
+            {
+                ReconnectionState.BumpCounter();
             }
 
-            if (this.reconnectionTracker.CanReconnect)
-            {
-                return false;
-            }
-
-            this.reconnectionTracker.BumpCounter();
-
-            this.existingConnection = new ConnectionBuilder(this._connectionFactory);
-
-            return true;
+            return flag;
         }
 
         protected class ReconnectionTracker
