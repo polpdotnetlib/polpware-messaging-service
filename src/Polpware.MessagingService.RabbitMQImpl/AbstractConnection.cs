@@ -42,7 +42,11 @@ namespace Polpware.MessagingService.RabbitMQImpl
             }
         }
 
-        public virtual bool PublishSafely(Action<IModel> action)
+        protected abstract IBasicProperties BuildChannelProperties(ChannelDecorator channelDecorator);
+
+        protected abstract void EnsureExchangeDeclared(ChannelDecorator channelDecorator);
+
+        public virtual bool PublishSafely(Action<ChannelDecorator> action)
         {
             var flag = false;
 
@@ -73,24 +77,24 @@ namespace Polpware.MessagingService.RabbitMQImpl
             }
             catch (AlreadyClosedException)
             {
-                ReconnectionState.BumpCounter();
-
                 ChannelPool.Clear();
                 ConnectionPool.Clear();
+
+                ReconnectionState.BumpCounter();
             }
             catch (BrokerUnreachableException)
             {
-                ReconnectionState.BumpCounter();
-
                 ChannelPool.Clear();
                 ConnectionPool.Clear();
+
+                ReconnectionState.BumpCounter();
             }
             catch (ConnectFailureException)
             {
-                ReconnectionState.BumpCounter();
-
                 ChannelPool.Clear();
                 ConnectionPool.Clear();
+
+                ReconnectionState.BumpCounter();
             }
             catch (Exception)
             {
@@ -125,13 +129,13 @@ namespace Polpware.MessagingService.RabbitMQImpl
             {
                 get
                 {
-                    if (this.ReconnectionCounter > 3)
+                    if (ReconnectionCounter > 3)
                     {
                         return false;
                     }
 
                     // Within a short time, we have tried too many times.
-                    if (this.LastFailureOn.HasValue)
+                    if (LastFailureOn.HasValue)
                     {
                         // todo: some logic here
                     }

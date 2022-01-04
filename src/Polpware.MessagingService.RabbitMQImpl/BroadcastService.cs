@@ -29,19 +29,37 @@ namespace Polpware.MessagingService.RabbitMQImpl
             OutDataAdpator = f;
         }
 
+        protected override IBasicProperties BuildChannelProperties(ChannelDecorator channelDecorator)
+        {
+            var properties = channelDecorator.GetOrCreateProperties((that) =>
+            {
+                var p = that.Channel.CreateBasicProperties();
+                p.Persistent = (bool)Settings["persistent"];
+                return p;
+            });
+
+            return properties;
+        }
+
+        protected override void EnsureExchangeDeclared(ChannelDecorator channelDecorator)
+        {
+            channelDecorator.EnsureExchangDeclared(that => channelDecorator.Channel.ExchangeDeclare(ExchangeName, "fanout"));
+        }
+
         public bool BroadcastMessage(TOut data)
         {
-            return PublishSafely((channel) => {
-                channel.ExchangeDeclare(ExchangeName, "fanout");
-                var properties = channel.CreateBasicProperties();
-                properties.Persistent = (bool)Settings["persistent"];
+            return PublishSafely((channelDecorator) =>
+            {
+                EnsureExchangeDeclared(channelDecorator);
 
                 var x = OutDataAdpator(data);
                 var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
 
-                channel.BasicPublish(exchange: ExchangeName,
+                var props = BuildChannelProperties(channelDecorator);
+
+                channelDecorator.Channel.BasicPublish(exchange: ExchangeName,
                                      routingKey: "",
-                                     basicProperties: properties,
+                                     basicProperties: props,
                                      body: bytes);
             });
 

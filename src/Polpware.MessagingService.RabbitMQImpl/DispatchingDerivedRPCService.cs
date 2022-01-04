@@ -26,34 +26,16 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// Amongest them, durable, persistent, exclusive, and autoDelete are used to define the properties of queue,
         /// while autoAck is to define the properties of the consumer (event handler).</param>
         /// <param name="replyQueue">Specific queue for replying messages. Most time leave it empty so that an anonymous queue will be computed internally.</param>
-        public DispatchingDerivedRPCService(ConnectionFactory connectionFactory, string exchange, IDictionary<string, object> settings, string replyQueue) : 
-            base(connectionFactory, exchange, settings)
+        public DispatchingDerivedRPCService(IConnectionPool connectionPool,
+            IChannelPool channelPool,
+            string connectionName,
+            string channelName,
+            string exchange,
+            IDictionary<string, object> settings,
+            string replyQueue) : 
+            base(connectionPool, channelPool, connectionName, channelName, exchange, settings)
         {
             _replyQueue = replyQueue;
-        }
-
-        protected override void Init()
-        {
-            base.Init();
-
-            _RPCInitHelper = new RPCInitHelper<TReturn>(_replyQueue);
-            _RPCInitHelper.InitCallback(existingConnection);
-        }
-
-        protected override void PrepareProperties()
-        {
-            base.PrepareProperties();
-
-            Props.CorrelationId = _RPCInitHelper.CorrelationId;
-            Props.ReplyTo = _RPCInitHelper.CallbackQueueName;
-        }
-
-        public override bool ReBuildConnection()
-        {
-            var f = base.ReBuildConnection();
-
-            _RPCInitHelper.InitCallback(existingConnection);
-            return f;
         }
 
         public void SetReturnAdaptor(Func<object, TReturn> func)
@@ -66,14 +48,55 @@ namespace Polpware.MessagingService.RabbitMQImpl
             _RPCInitHelper.ReturnHandler = action;
         }
 
+
+        protected override IBasicProperties BuildChannelProperties(ChannelDecorator channelDecorator)
+        {
+            var p = channelDecorator.GetOrCreateProperties((that) =>
+            {
+                var properties = that.Channel.CreateBasicProperties();
+                properties.Persistent = (bool)Settings["persistent"];
+                properties.CorrelationId = _RPCInitHelper.CorrelationId;
+                properties.ReplyTo = _RPCInitHelper.CallbackQueueName;
+
+                return properties;
+            });
+
+            return p;
+        }
+
         public void Call(TCall data, params object[] options)
         {
             var routingKey = options.Length > 0 ? options[0].ToString() : "";
+
             DispatchMessage(data, routingKey);
 
-            existingConnection.Channel.BasicConsume(_RPCInitHelper.CallbackConsumer,
-                queue: _RPCInitHelper.CallbackQueueName,
-                autoAck: true);
+        }
+
+        public override bool DispatchMessage(TCall data, string routingKey)
+        {
+
+            return PublishSafely((channelDecorator) =>
+            {
+
+                EnsureExchangeDeclared(channelDecorator);
+                _RPCInitHelper.SetupCallback(channelDecorator);
+
+                var x = OutDataAdpator(data);
+                var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
+
+
+                // Set up listener
+                channelDecorator.Channel.BasicConsume(_RPCInitHelper.CallbackConsumer,
+                    queue: _RPCInitHelper.CallbackQueueName,
+                    autoAck: true);
+
+                // Must call this after _RPCInitHelper
+                var props = BuildChannelProperties(channelDecorator);
+                channelDecorator.Channel.BasicPublish(exchange: ExchangeName,
+                                     routingKey: routingKey,
+                                     basicProperties: Props,
+                                     body: bytes);
+            });
         }
     }
 }

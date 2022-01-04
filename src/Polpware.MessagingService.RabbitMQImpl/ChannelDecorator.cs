@@ -22,6 +22,14 @@ namespace Polpware.MessagingService.RabbitMQImpl
         // Is it possible that one connection is disposed???
         public bool IsDisposed { get; private set; }
 
+        public IRpcChannelFeature RpcChannelFeature { get; set; }
+
+        // todo: Do we need to consider thread-safe (parallel)?
+        // todo: Maybe not, because a channel can only used in one place at a time.
+        // Properties
+        private IBasicProperties _properties;
+        private bool _exchangeDeclared; 
+
         public ChannelDecorator(string name, IModel channel, string connectionName)
         {
             Channel = channel;
@@ -33,11 +41,29 @@ namespace Polpware.MessagingService.RabbitMQImpl
         // Note that this method will not handle exceptions.
         // It only ensure that we share the channel; excpetions would be 
         // thrown up.
-        public void PublishSafely(Action<IModel> action)
+        public void PublishSafely(Action<ChannelDecorator> action)
         {
             lock(_locker)
             {
-                action.Invoke(Channel);
+                action.Invoke(this);
+            }
+        }
+
+        public IBasicProperties GetOrCreateProperties(Func<ChannelDecorator, IBasicProperties> func)
+        {
+            if (_properties == null)
+            {
+                _properties = func(this);
+            }
+            return _properties;
+        }
+
+        public void EnsureExchangDeclared(Action<ChannelDecorator> action)
+        {
+            if (!_exchangeDeclared)
+            {
+                action.Invoke(this);
+                _exchangeDeclared = true;
             }
         }
 
@@ -50,6 +76,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
             try
             {
+                RpcChannelFeature?.TearOffCallback(Channel);
                 Channel?.Close();
             }
             catch (Exception e)

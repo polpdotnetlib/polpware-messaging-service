@@ -25,8 +25,6 @@ namespace Polpware.MessagingService.RabbitMQImpl
             ExchangeName = exchange;
 
             Init();
-
-            PrepareProperties();
         }
 
         public void SetDataAdaptor<U>(Func<TOut, U> f) where U : class
@@ -42,34 +40,44 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// <summary>
         /// Properties to be used for sending out messages.
         /// </summary>
-        protected virtual void PrepareProperties(IModel channel)
+        protected override IBasicProperties BuildChannelProperties(ChannelDecorator channelDecorator)
         {
-            var properties = channel.CreateBasicProperties();
-            properties.Persistent = (bool)Settings["persistent"];
+            var p = channelDecorator.GetOrCreateProperties((that) =>
+            {
+                var properties = that.Channel.CreateBasicProperties();
+                properties.Persistent = (bool)Settings["persistent"];
+                return properties;
+            });
+
+            return p;
+        }
+
+        protected override void EnsureExchangeDeclared(ChannelDecorator channelDecorator)
+        {
+            channelDecorator.EnsureExchangDeclared(that =>
+            {
+                that.Channel.ExchangeDeclare(ExchangeName, "direct");
+            });
         }
 
         public virtual bool DispatchMessage(TOut data, string routingKey)
         {
 
-            return PublishSafely((channel) => {
-                channel.ExchangeDeclare(ExchangeName, "direct");
-                PrepareProperties(channel);
+            return PublishSafely((channelDecorator) =>
+            {
+
+                EnsureExchangeDeclared(channelDecorator);
 
                 var x = OutDataAdpator(data);
                 var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
 
-                channel.BasicPublish(exchange: ExchangeName,
+                var props = BuildChannelProperties(channelDecorator);
+
+                channelDecorator.Channel.BasicPublish(exchange: ExchangeName,
                                      routingKey: routingKey,
                                      basicProperties: Props,
                                      body: bytes);
             });
-        }
-
-        public override bool ReBuildConnection()
-        {
-            var f = base.ReBuildConnection();
-            PrepareProperties();
-            return f;
         }
     }
 }
