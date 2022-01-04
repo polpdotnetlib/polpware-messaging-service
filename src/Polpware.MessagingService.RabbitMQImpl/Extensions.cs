@@ -8,5 +8,10 @@ namespace Polpware.MessagingService.RabbitMQImpl
         {
             return new ConnectionDecorator(name, conn);
         }
+
+        public static ChannelDecorator Map2Decorator(this IModel channel, string name, string connName)
+        {
+            return new ChannelDecorator(name, channel, connName);
+        }
     }
 }

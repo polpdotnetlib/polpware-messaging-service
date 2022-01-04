@@ -3,6 +3,7 @@ using System;
 
 namespace Polpware.MessagingService.RabbitMQImpl
 {
+    [Obsolete]
     public class ConnectionBuilder : IDisposable
     {
         public IConnection Connection { get; private set; }

@@ -28,5 +28,10 @@ namespace Polpware.MessagingService.RabbitMQImpl
             var conn = factory.CreateConnection();
             return new ConnectionDecorator(connectionName, conn);
         }
+
+        public void Remove(string connectionName)
+        {
+            // Trivial
+        }
     }
 }

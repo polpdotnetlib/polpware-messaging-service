@@ -23,30 +23,42 @@ namespace Polpware.MessagingService.RabbitMQImpl
             connectionName = connectionName
                                         ?? FactoryProvider.DefaultConnectionName;
 
-            return Connections.GetOrAdd(
+            var item = Connections.GetOrAdd(
                 connectionName,
                 (k) => FactoryProvider
                     .Build()
                     .CreateConnection()
                     .Map2Decorator(k)
                );
+
+            if (item.IsDisposed || !item.IsOpen)
+            {
+                throw new UnexpectedConnectionDecoratorException();
+            }
+
+            return item;
         }
 
-        public void Dispose()
+        public void Clear()
         {
-            foreach (var connection in Connections.Values)
+            foreach (var entry in Connections.Values)
             {
-                try
-                {
-                    connection.Dispose();
-                }
-                catch
-                {
-
-                }
+                entry.Close();
+                entry.Dispose();
             }
 
             Connections.Clear();
+        }
+
+        public void Remove(string connectionName)
+        {
+            Connections.TryRemove(connectionName, out ConnectionDecorator entry);
+            if (entry != null)
+            {
+                // Should not throw any exception
+                entry.Close();
+                entry.Dispose();
+            } 
         }
     }
 }

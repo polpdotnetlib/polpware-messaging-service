@@ -8,6 +8,9 @@ namespace Polpware.MessagingService.RabbitMQImpl
     public interface IChannelPool
     {
         IConnectionPool ConnectionPool { get; }
-        IModel Acquire(string channelName = null, string connectionName = null);
+        ChannelDecorator Get(string channelName = null, string connectionName = null);
+        void Remove(string channelName, string connectionName);
+        // todo: Maybe clear by connection name
+        void Clear();
     }
 }
