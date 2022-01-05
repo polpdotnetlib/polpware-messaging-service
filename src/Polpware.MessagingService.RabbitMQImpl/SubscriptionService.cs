@@ -4,6 +4,7 @@ using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Exceptions;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace Polpware.MessagingService.RabbitMQImpl
 {
@@ -24,6 +25,8 @@ namespace Polpware.MessagingService.RabbitMQImpl
         protected volatile ChannelDecorator EffectiveChannelDecorator;
 
         public string SubscriptionQueueName { get; protected set; }
+
+        protected ManualResetEvent ResetEvent = new ManualResetEvent(false);
 
         public SubscriptionService(IConnectionPool connectionPool,
             IChannelPool channelPool,
@@ -102,15 +105,36 @@ namespace Polpware.MessagingService.RabbitMQImpl
                 InDataHandler = handler;
             }
 
-            SubscribeInner();
+            // Start to thread
+            new Thread(StartToListen).Start();
+            // Yield to other thread
+            Thread.Sleep(100);
+            ResetEvent.Set();
+        }
+
+        private void StartToListen()
+        {
+            while(true)
+            {
+                ResetEvent.WaitOne();
+
+                SubscribeInner();
+            }
         }
 
         private void SubscribeInner()
         {
+
             if (!ReconnectionState.CanReconnect)
             {
                 // No more try
                 return;
+            }
+
+            // wait for some time
+            if (ReconnectionState.ReconnectionCounter > 0)
+            {
+                Thread.Sleep(1000 * 60 * ReconnectionState.ReconnectionCounter * ReconnectionState.ReconnectionCounter);
             }
 
             try
