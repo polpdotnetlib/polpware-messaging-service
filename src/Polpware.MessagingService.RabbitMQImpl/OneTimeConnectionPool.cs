@@ -33,5 +33,10 @@ namespace Polpware.MessagingService.RabbitMQImpl
         {
             // Trivial
         }
+
+        public void Clear()
+        {
+
+        }
     }
 }
