@@ -4,7 +4,7 @@ using System;
 
 namespace Polpware.MessagingService.RabbitMQImpl
 {
-    public class RPCChannelFeature<TReturn>: IRPCChannelFeature where TReturn : class
+    public class RPCChannelFeature<TReturn>: IChannelCallbackFeature where TReturn : class
     {
         public string CallbackQueueName { get; private set; }
         public EventingBasicConsumer CallbackConsumer { get; private set; }

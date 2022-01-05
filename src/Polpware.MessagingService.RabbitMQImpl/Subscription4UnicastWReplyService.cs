@@ -12,10 +12,16 @@ namespace Polpware.MessagingService.RabbitMQImpl
         where TReply: class
         where TInter: class
     {
-        protected Func<TIn, TReply> _replyAdaptor;
+        protected Func<TIn, TReply> ReplyAdaptor;
 
-        public Subscription4UnicastWReplyService(ConnectionFactory connectionFactory, string queue, IDictionary<string, object> settings)
-            :base(connectionFactory, queue, settings)
+        public Subscription4UnicastWReplyService(IConnectionPool connectionPool,
+            IChannelPool channelPool,
+            string connectionName,
+            string channelName,
+            string exchange,
+            string queue, 
+            IDictionary<string, object> settings)
+            :base(connectionPool, channelPool, connectionName, channelName, exchange, queue, settings)
         { }
 
         /// <summary>
@@ -27,21 +33,22 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// <param name="func">Function for generating the reply message</param>
         public void SetReplyAdaptor(Func<TIn, TReply> func)
         {
-            _replyAdaptor = func;
+            ReplyAdaptor = func;
         }
 
         protected void SendReply(TIn data, BasicDeliverEventArgs evt)
         {
-            if (_replyAdaptor != null)
+            if (ReplyAdaptor != null)
             {
-                var replyProps = existingConnection.Channel.CreateBasicProperties();
+                var replyProps = EffectiveChannelDecorator.Channel.CreateBasicProperties();
                 replyProps.CorrelationId = evt.BasicProperties.CorrelationId;
 
-                var replyMessage = _replyAdaptor(data);
+                var replyMessage = ReplyAdaptor(data);
 
                 var bytes = Polpware.Runtime.Serialization.ByteConvertor.ObjectToByteArray(replyMessage);
 
-                existingConnection.Channel.BasicPublish(exchange: "",
+                // todo: ????
+                EffectiveChannelDecorator.Channel.BasicPublish(exchange: "",
                     routingKey: evt.BasicProperties.ReplyTo,
                                      basicProperties: replyProps,
                                      body: bytes);

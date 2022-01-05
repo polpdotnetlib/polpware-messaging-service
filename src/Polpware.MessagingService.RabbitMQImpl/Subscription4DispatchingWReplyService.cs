@@ -12,18 +12,26 @@ namespace Polpware.MessagingService.RabbitMQImpl
         where TReply : class
         where TInter: class
     {
-        protected Func<TIn, TReply> _replyAdaptor;
+        protected Func<TIn, TReply> ReplyAdaptor;
 
         /// <summary>
         /// Constructor
         /// </summary>
-        /// <param name="connectionFactory">RabbitMQ-specific connection factory</param>
-        /// <param name="exchange">Exchange name</param>
+        /// <param name="connectionPool">Connection pool</param>
+        /// <param name="channelPool">Channel pool</param>
+        /// <param name="connectionName">Connection name</param>
+        /// <param name="channelName">Channel name</param>
+        /// <param name="exchange">Exchange name</param> 
         /// <param name="settings">A set of settings, such as  durable, persistent, exclusive, autoDelete, autoAck for queues</param>
         /// <param name="queue">Specific queue, or leave it empty so that an anonymous, unique queue is generated</param>
         /// <param name="routingKey">The label used to characterize the group of a message to be sent out.</param>
-        public Subscription4DispatchingWReplyService(ConnectionFactory connectionFactory, string exchange, IDictionary<string, object> settings, string queue, string routingKey)
-            : base(connectionFactory, exchange, settings, queue, routingKey)
+        public Subscription4DispatchingWReplyService(IConnectionPool connectionPool,
+            IChannelPool channelPool,
+            string connectionName,
+            string channelName,
+            string exchange, 
+            IDictionary<string, object> settings, string queue, string routingKey)
+            : base(connectionPool, channelPool, connectionName, channelName, exchange, settings, queue, routingKey)
         { }
 
 
@@ -36,21 +44,22 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// <param name="func">Function for generating the reply message</param>
         public void SetReplyAdaptor(Func<TIn, TReply> func)
         {
-            _replyAdaptor = func;
+            ReplyAdaptor = func;
         }
 
         protected void SendReply(TIn data, BasicDeliverEventArgs evt)
         {
-            if (_replyAdaptor != null)
+            // todo: Check the correctness
+            if (ReplyAdaptor != null)
             {
-                var replyProps = existingConnection.Channel.CreateBasicProperties();
+                var replyProps = EffectiveChannelDecorator.Channel.CreateBasicProperties();
                 replyProps.CorrelationId = evt.BasicProperties.CorrelationId;
 
-                var replyMessage = _replyAdaptor(data);
+                var replyMessage = ReplyAdaptor(data);
 
                 var bytes = Polpware.Runtime.Serialization.ByteConvertor.ObjectToByteArray(replyMessage);
 
-                existingConnection.Channel.BasicPublish(exchange: "",
+                EffectiveChannelDecorator.Channel.BasicPublish(exchange: "",
                     routingKey: evt.BasicProperties.ReplyTo,
                                      basicProperties: replyProps,
                                      body: bytes);

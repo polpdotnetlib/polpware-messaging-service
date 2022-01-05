@@ -7,45 +7,62 @@ namespace Polpware.MessagingService.RabbitMQImpl
         where TIn : class
         where TInter: class
     {
-        private readonly string _exchange;
-        private readonly string _routingKey;
-        private readonly string _queue;
+        protected string RoutingKey;
 
         /// <summary>
         /// Constructor
         /// </summary>
-        /// <param name="connectionFactory">RabbitMQ-specific connection factory</param>
-        /// <param name="exchange">Exchange name</param>
+        /// <param name="connectionPool">Connection pool</param>
+        /// <param name="channelPool">Channel pool</param>
+        /// <param name="connectionName">Connection name</param>
+        /// <param name="channelName">Channel name</param>
+        /// <param name="exchange">Exchange name</param> 
         /// <param name="settings">A set of settings, such as  durable, persistent, exclusive, autoDelete, autoAck for queues</param>
         /// <param name="queue">Specific queue, or leave it empty so that an anonymous, unique queue is generated</param>
         /// <param name="routingKey">The label used to characterize the group of a message to be sent out.</param>
-        public Subscription4DispatchingService(ConnectionFactory connectionFactory, string exchange, IDictionary<string, object> settings, string queue, string routingKey) 
-            : base(connectionFactory, settings)
+        public Subscription4DispatchingService(IConnectionPool connectionPool,
+            IChannelPool channelPool,
+            string connectionName,
+            string channelName,
+            string exchange, 
+            IDictionary<string, object> settings, string queue, string routingKey) 
+            : base(connectionPool, channelPool, connectionName, channelName, exchange, settings)
         {
-            _exchange = exchange;
-            _routingKey = routingKey;
-            _queue = queue;
+            RoutingKey = routingKey;
+            SubscriptionQueueName = queue;
         }
 
-        protected override void BuildOrBindQueue()
+        protected override void BuildOrBindQueue(ChannelDecorator channelDecorator)
         {
-            existingConnection.Channel.ExchangeDeclare(_exchange, "direct");  // specify more params if needed, like "durable"
-
-            if (string.IsNullOrEmpty(_queue))
+            channelDecorator.EnsureExchangDeclared((that) =>
             {
-                existingConnection.QueueName = existingConnection.Channel.QueueDeclare().QueueName;
-            }
-            else
-            {
-                existingConnection.QueueName = existingConnection.Channel.QueueDeclare(_queue, 
-                    durable: (bool)Settings["durable"],
-                    exclusive: (bool)Settings["exclusive"],
-                    autoDelete: (bool)Settings["autoDelete"]).QueueName;
-            }
+                that.Channel.ExchangeDeclare(ExchangeName, "direct");  // specify more params if needed, like "durable"
+            });
 
-            existingConnection.Channel.QueueBind(queue: existingConnection.QueueName,
-                     exchange: _exchange,
-                     routingKey: _routingKey);
+
+
+            channelDecorator.EnsureQueueBinded((that) =>
+            {
+
+                if (string.IsNullOrEmpty(SubscriptionQueueName))
+                {
+                    SubscriptionQueueName = channelDecorator.Channel.QueueDeclare(durable: (bool)Settings["durable"],
+                        exclusive: (bool)Settings["exclusive"],
+                        autoDelete: (bool)Settings["autoDelete"])
+                    .QueueName;
+                }
+                else
+                {
+                    that.Channel.QueueDeclare(SubscriptionQueueName,
+                        durable: (bool)Settings["durable"],
+                        exclusive: (bool)Settings["exclusive"],
+                        autoDelete: (bool)Settings["autoDelete"]);
+                }
+
+                that.Channel.QueueBind(queue: SubscriptionQueueName,
+                         exchange: ExchangeName,
+                         routingKey: RoutingKey);
+            });
 
             // QoS does not make sense for 
             // existingConnection.Channel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);

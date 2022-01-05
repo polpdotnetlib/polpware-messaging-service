@@ -22,13 +22,14 @@ namespace Polpware.MessagingService.RabbitMQImpl
         // Is it possible that one connection is disposed???
         public bool IsDisposed { get; private set; }
 
-        public IRPCChannelFeature RpcChannelFeature { get; set; }
+        public IChannelCallbackFeature RpcChannelFeature { get; set; }
 
         // todo: Do we need to consider thread-safe (parallel)?
         // todo: Maybe not, because a channel can only used in one place at a time.
         // Properties
         private IBasicProperties _properties;
-        private bool _exchangeDeclared; 
+        private bool _exchangeDeclared;
+        private bool _queueBinded;
 
         public ChannelDecorator(string name, IModel channel, string connectionName)
         {
@@ -67,6 +68,15 @@ namespace Polpware.MessagingService.RabbitMQImpl
             }
         }
 
+        public void EnsureQueueBinded(Action<ChannelDecorator> action)
+        {
+            if (!_queueBinded)
+            {
+                action.Invoke(this);
+                _queueBinded = true;
+            }
+        }
+
         public void Close()
         {
             if (!IsOpen)
@@ -76,7 +86,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
             try
             {
-                RpcChannelFeature?.TearOffCallback(Channel);
+                RpcChannelFeature?.TearOffCallback();
                 Channel?.Close();
             }
             catch (Exception e)

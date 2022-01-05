@@ -1,61 +1,47 @@
 ﻿using Polpware.MessagingService.Spec;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using RabbitMQ.Client.Exceptions;
 using System;
 using System.Collections.Generic;
 
 namespace Polpware.MessagingService.RabbitMQImpl
 {
     public abstract class SubscriptionService<TIn, TInter> :
-        AbstractConnection, ISubscriptionService<TIn, TInter> 
+        AbstractConnection, ISubscriptionService<TIn, TInter>
         where TIn : class
-        where TInter: class
+        where TInter : class
     {
-        protected Func<object, Tuple<TIn, TInter>> _inDataAdaptor;
-        protected Func<TIn, TInter, int> _inDataHandler;
-        protected Func<Exception, Tuple<bool, bool>> _exceptionHandler;
+        public string ExchangeName { get; private set; }
 
-        public SubscriptionService(ConnectionFactory connectionFactory, IDictionary<string, object> settings) 
-            : base(connectionFactory, settings)
+        protected Func<object, Tuple<TIn, TInter>> InDataAdaptor;
+        protected Func<TIn, TInter, int> InDataHandler;
+        protected Func<Exception, Tuple<bool, bool>> ExceptionHandler;
+
+        protected SubscriptionChannelFeature CallbackFeature;
+        protected ChannelDecorator EffectiveChannelDecorator;
+
+        public string SubscriptionQueueName { get; protected set; }
+
+        public SubscriptionService(IConnectionPool connectionPool,
+            IChannelPool channelPool,
+            string connectionName,
+            string channelName,
+            string exchange,
+            IDictionary<string, object> settings)
+            : base(connectionPool, channelPool, connectionName, channelName, settings)
         {
-            _inDataAdaptor = x => Tuple.Create<TIn, TInter>(x as TIn, null);
-        }
+            ExchangeName = exchange;
+            InDataAdaptor = x => Tuple.Create<TIn, TInter>(x as TIn, null);
 
-        protected abstract void BuildOrBindQueue();
-
-        public void Subscribe(Func<object, Tuple<TIn, TInter>> adaptor = null, Func<TIn, TInter, int> handler = null)
-        {
-            if (adaptor != null)
+            CallbackFeature = new SubscriptionChannelFeature();
+            // Set up for exceptions:
+            CallbackFeature.CallbackConsumer.Shutdown += (model, args) =>
             {
-                _inDataAdaptor = adaptor;
-            }
+                // todo: any
+            };
 
-            if (handler != null)
-            {
-                _inDataHandler = handler;
-            }
-
-            this.BuildOrBindQueue();
-
-            try
-            {
-                this.SubscribeInner();
-            }
-            catch (Exception e)
-            {
-                if (this.ReBuildConnection())
-                {
-                    this.SubscribeInner();
-                }
-
-                throw new MessagingServiceException(e, 0, "");
-            }
-        }
-
-        private void SubscribeInner()
-        {
-            var consumer = new EventingBasicConsumer(existingConnection.Channel);
-            consumer.Received += (model, message) =>
+            CallbackFeature.DataHandler = (message) =>
             {
                 try
                 {
@@ -63,17 +49,18 @@ namespace Polpware.MessagingService.RabbitMQImpl
                     var body = message.Body;
                     // todo: 
                     var payload = Runtime.Serialization.ByteConvertor.ByteArrayToObject(body.ToArray());
-                    var data = _inDataAdaptor(payload);
-                    var code = _inDataHandler(data.Item1, data.Item2);
+                    var data = InDataAdaptor(payload);
+                    var code = InDataHandler(data.Item1, data.Item2);
                     PostHandling(code, data.Item1, message);
-                } catch (Exception e)
+                }
+                catch (Exception e)
                 {
-                    if (_exceptionHandler != null)
+                    if (ExceptionHandler != null)
                     {
-                        var ret = _exceptionHandler(e);
+                        var ret = ExceptionHandler(e);
                         if (ret.Item1)
                         {
-                            this.AckMessage(new BasicAckEventArgs
+                            AckMessage(new BasicAckEventArgs
                             {
                                 DeliveryTag = message.DeliveryTag,
                                 Multiple = false
@@ -81,7 +68,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
                         }
                         else
                         {
-                            this.NAckMessage(new BasicNackEventArgs
+                            NAckMessage(new BasicNackEventArgs
                             {
                                 DeliveryTag = message.DeliveryTag,
                                 Multiple = false
@@ -90,27 +77,107 @@ namespace Polpware.MessagingService.RabbitMQImpl
                     }
 
                     // By default, reject but do not reenque
-                    this.NAckMessage(new BasicNackEventArgs
+                    NAckMessage(new BasicNackEventArgs
                     {
                         DeliveryTag = message.DeliveryTag,
                         Multiple = false
                     }, false);
                 }
             };
+        }
 
-            existingConnection.Channel.BasicConsume(queue: existingConnection.QueueName, 
-                autoAck: (bool)Settings["autoAck"],
-                consumer:consumer);
+        protected abstract void BuildOrBindQueue(ChannelDecorator channelDecorator);
+
+        public void Subscribe(Func<object, Tuple<TIn, TInter>> adaptor = null, Func<TIn, TInter, int> handler = null)
+        {
+            if (adaptor != null)
+            {
+                InDataAdaptor = adaptor;
+            }
+
+            if (handler != null)
+            {
+                InDataHandler = handler;
+            }
+
+            SubscribeInner();
+        }
+
+        private void SubscribeInner()
+        {
+            if (!ReconnectionState.CanReconnect)
+            {
+                // No more try
+                return;
+            }
+
+            try
+            {
+                EffectiveChannelDecorator = ChannelPool.Get(ChannelName, ConnectionName);
+                CallbackFeature.SetupCallback(EffectiveChannelDecorator);
+
+                BuildOrBindQueue(EffectiveChannelDecorator);
+
+                EffectiveChannelDecorator.Channel.BasicConsume(queue: SubscriptionQueueName,
+                    autoAck: (bool)Settings["autoAck"],
+                    consumer: CallbackFeature.CallbackConsumer);
+
+                ReconnectionState.Reset();
+            }
+            catch (UnexpectedConnectionDecoratorException)
+            {
+                ConnectionPool.Clear();
+
+                ReconnectionState.BumpCounter();
+                SubscribeInner();
+            }
+            catch (UnexpectedChannelDecoratorException)
+            {
+                ChannelPool.Clear();
+
+                ReconnectionState.BumpCounter();
+                SubscribeInner();
+            }
+            catch (AlreadyClosedException)
+            {
+                ChannelPool.Clear();
+                ConnectionPool.Clear();
+
+                ReconnectionState.BumpCounter();
+                SubscribeInner();
+            }
+            catch (BrokerUnreachableException)
+            {
+                ChannelPool.Clear();
+                ConnectionPool.Clear();
+
+                ReconnectionState.BumpCounter();
+                SubscribeInner();
+            }
+            catch (ConnectFailureException)
+            {
+                ChannelPool.Clear();
+                ConnectionPool.Clear();
+
+                ReconnectionState.BumpCounter();
+                SubscribeInner();
+            }
+            catch (Exception)
+            {
+                ReconnectionState.BumpCounter();
+                SubscribeInner();
+            }
+
         }
 
         protected void AckMessage(BasicAckEventArgs message)
         {
-            existingConnection.Channel.BasicAck(deliveryTag: message.DeliveryTag, multiple: message.Multiple);
+            EffectiveChannelDecorator?.Channel.BasicAck(deliveryTag: message.DeliveryTag, multiple: message.Multiple);
         }
 
         protected void NAckMessage(BasicNackEventArgs message, bool requeue)
         {
-            existingConnection.Channel.BasicNack(deliveryTag: message.DeliveryTag, multiple: message.Multiple, requeue: requeue);
+            EffectiveChannelDecorator?.Channel.BasicNack(deliveryTag: message.DeliveryTag, multiple: message.Multiple, requeue: requeue);
         }
 
         /// <summary>
@@ -127,7 +194,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// <param name="adaptor">Function to translate the incoming message.</param>
         public void SetDataAdaptor(Func<object, Tuple<TIn, TInter>> adaptor)
         {
-            _inDataAdaptor = adaptor;
+            InDataAdaptor = adaptor;
         }
 
         /// <summary>
@@ -136,14 +203,14 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// <param name="handler">Functon to process the generated data from the incoming message.</param>
         public void SetDataHandler(Func<TIn, TInter, int> handler)
         {
-            _inDataHandler = handler;
+            InDataHandler = handler;
         }
 
         public void SetExceptionHandler(Func<Exception, Tuple<bool, bool>> handler)
         {
-            _exceptionHandler = handler;
+            ExceptionHandler = handler;
         }
 
-        public bool IsOperating => this.existingConnection.Channel.IsOpen;
+        public bool IsOperating => EffectiveChannelDecorator != null ? EffectiveChannelDecorator.Channel.IsOpen : false;
     }
 }

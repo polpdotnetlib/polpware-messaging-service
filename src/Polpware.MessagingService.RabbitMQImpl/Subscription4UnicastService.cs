@@ -7,21 +7,47 @@ namespace Polpware.MessagingService.RabbitMQImpl
         where TIn : class
         where TInter: class
     {
-        public Subscription4UnicastService(ConnectionFactory connectionFactory, string queue, IDictionary<string, object> settings) 
-            : base(connectionFactory, settings)
+        public Subscription4UnicastService(IConnectionPool connectionPool,
+            IChannelPool channelPool,
+            string connectionName,
+            string channelName,
+            string exchange, 
+            string queue, 
+            IDictionary<string, object> settings) 
+            : base(connectionPool, channelPool, connectionName, channelName, exchange, settings)
         {
-            existingConnection.QueueName = queue;
+            SubscriptionQueueName = queue;
         }
 
-        protected override void BuildOrBindQueue()
+        protected override void BuildOrBindQueue(ChannelDecorator channelDecorator)
         {
-            existingConnection.Channel.QueueDeclare(queue: existingConnection.QueueName,
-                durable: (bool)Settings["durable"],
-                exclusive: (bool)Settings["exclusive"],
-                autoDelete: (bool)Settings["autoDelete"],
-                arguments: null);
+            channelDecorator.EnsureExchangDeclared((that) =>
+            {
+                if (!string.IsNullOrEmpty(ExchangeName))
+                {
+                    that.Channel.ExchangeDeclare(ExchangeName, "direct");  // specify more params if needed, like "durable"
+                }
+            });
 
-            existingConnection.Channel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+            channelDecorator.EnsureQueueBinded((that) =>
+            {
+
+                that.Channel.QueueDeclare(queue: SubscriptionQueueName,
+                    durable: (bool)Settings["durable"],
+                    exclusive: (bool)Settings["exclusive"],
+                    autoDelete: (bool)Settings["autoDelete"],
+                    arguments: null);
+
+                // todo: Do we need the binding?
+                that.Channel.QueueBind(queue: SubscriptionQueueName,
+                         exchange: ExchangeName,
+                         routingKey: SubscriptionQueueName);
+
+                that.Channel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+
+            });
+
+
         }
 
     }

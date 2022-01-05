@@ -7,22 +7,34 @@ namespace Polpware.MessagingService.RabbitMQImpl
         where TIn : class
         where TInter: class
     {
-        private readonly string _exchange;
-        public Subscription4BroadcastService(ConnectionFactory connectionFactory, string exchange, IDictionary<string, object> settings) 
-            : base(connectionFactory, settings)
+
+        public Subscription4BroadcastService(IConnectionPool connectionPool,
+            IChannelPool channelPool,
+            string connectionName,
+            string channelName,
+            string exchange,
+            IDictionary<string, object> settings) 
+            : base(connectionPool, channelPool, connectionName, channelName, exchange, settings)
         {
-            _exchange = exchange;
         }
 
-        protected override void BuildOrBindQueue()
+        protected override void BuildOrBindQueue(ChannelDecorator channelDecorator)
         {
-            existingConnection.Channel.ExchangeDeclare(_exchange, "fanout");  // specify more params if needed, like "durable"
+            channelDecorator.EnsureExchangDeclared((that) =>
+            {
+                that.Channel.ExchangeDeclare(ExchangeName, "fanout");  // specify more params if needed, like "durable"
+            });
 
-            existingConnection.QueueName = existingConnection.Channel.QueueDeclare().QueueName;
+            channelDecorator.EnsureQueueBinded((that) =>
+            {
+                SubscriptionQueueName = channelDecorator.Channel.QueueDeclare(durable: (bool)Settings["durable"],
+                        exclusive: (bool)Settings["exclusive"],
+                        autoDelete: (bool)Settings["autoDelete"]).QueueName;
 
-            existingConnection.Channel.QueueBind(queue: existingConnection.QueueName,
-                     exchange: _exchange,
-                     routingKey: "");
+                that.Channel.QueueBind(queue: SubscriptionQueueName,
+                         exchange: ExchangeName,
+                         routingKey: "");
+            });
 
             // QoS does not make sense for 
             // existingConnection.Channel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
