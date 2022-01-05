@@ -19,7 +19,9 @@ namespace Polpware.MessagingService.RabbitMQImpl
         protected Func<Exception, Tuple<bool, bool>> ExceptionHandler;
 
         protected SubscriptionChannelFeature CallbackFeature;
-        protected ChannelDecorator EffectiveChannelDecorator;
+        // We use the following one to share between the hosting thread
+        // the thread performing the subscription task.
+        protected volatile ChannelDecorator EffectiveChannelDecorator;
 
         public string SubscriptionQueueName { get; protected set; }
 
