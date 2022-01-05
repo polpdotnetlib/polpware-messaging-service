@@ -10,8 +10,6 @@ namespace Polpware.MessagingService.RabbitMQImpl
         protected readonly string ExchangeName;
         protected readonly string QueueName;
 
-        protected IBasicProperties _props;
-
         protected Func<T, object> OutDataAdpator;
 
         public UnicastService(IConnectionPool connectionPool,
