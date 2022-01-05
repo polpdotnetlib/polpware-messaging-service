@@ -9,58 +9,76 @@ namespace Polpware.MessagingService.RabbitMQImpl
         where TCall : class
         where TReturn: class
     {
-        private RPCInitHelper<TReturn> _RPCInitHelper;
-        private readonly string _replyQueue;
+        private RPCChannelFeature<TReturn> _RPCChannelFeature;
 
-        public UnicastDerivedRPCService(ConnectionFactory connectionFactory, string queue, IDictionary<string, object> settings, string replyQueue) 
-            : base(connectionFactory, queue, settings)
+        public UnicastDerivedRPCService(IConnectionPool connectionPool,
+            IChannelPool channelPool,
+            string connectionName,
+            string channelName,
+            string exchange,
+            string queue, 
+            IDictionary<string, object> settings, 
+            string replyQueue) 
+            : base(connectionPool, channelPool, connectionName, channelName, exchange, queue, settings)
         {
-            _replyQueue = replyQueue;
+            _RPCChannelFeature = new RPCChannelFeature<TReturn>(replyQueue);
+        }
+        public void SetReturnAdaptor(Func<object, TReturn> func)
+        {
+            _RPCChannelFeature.ReturnAdaptor = func;
         }
 
-        protected override void Init()
+        public void SetReturnHandler(Action<TReturn> action)
         {
-            base.Init();
-
-            _RPCInitHelper = new RPCInitHelper<TReturn>(_replyQueue);
-            _RPCInitHelper.InitCallback(existingConnection);
+            _RPCChannelFeature.ReturnHandler = action;
         }
 
-
-        protected override void PrepareProperties()
+        protected override IBasicProperties BuildChannelProperties(ChannelDecorator channelDecorator)
         {
-            base.PrepareProperties();
+            var p = channelDecorator.GetOrCreateProperties((that) =>
+            {
+                var properties = that.Channel.CreateBasicProperties();
+                properties.Persistent = (bool)Settings["persistent"];
+                properties.CorrelationId = _RPCChannelFeature.CorrelationId;
+                properties.ReplyTo = _RPCChannelFeature.CallbackQueueName;
 
-            _props.CorrelationId = _RPCInitHelper.CorrelationId;
-            _props.ReplyTo = _RPCInitHelper.CallbackQueueName;
+                return properties;
+            });
+
+            return p;
         }
 
-        public override bool ReBuildConnection()
-        {
-            var f = base.ReBuildConnection();
-
-            _RPCInitHelper.InitCallback(existingConnection);
-            return f;
-        }
 
         public void Call(TCall data, params object[] options)
         {
             SendMessage(data);
 
-            // auto ack
-            existingConnection.Channel.BasicConsume(_RPCInitHelper.CallbackConsumer, 
-                queue: _RPCInitHelper.CallbackQueueName,
-                autoAck: true);
         }
 
-        public void SetReturnAdaptor(Func<object, TReturn> func)
+        public override bool SendMessage(TCall data)
         {
-            _RPCInitHelper.ReturnAdaptor = func;
-        }
 
-        public void SetReturnHandler(Action<TReturn> action)
-        {
-            _RPCInitHelper.ReturnHandler = action;
+            return PublishSafely((channelDecorator) =>
+            {
+
+                EnsureExchangeDeclared(channelDecorator);
+                _RPCChannelFeature.SetupCallback(channelDecorator);
+
+                var x = OutDataAdpator(data);
+                var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
+
+                // Set up listener
+                channelDecorator.Channel.BasicConsume(_RPCChannelFeature.CallbackConsumer,
+                    queue: _RPCChannelFeature.CallbackQueueName,
+                    autoAck: true);
+
+                // Must call this after invoking SetupCallback
+                var props = BuildChannelProperties(channelDecorator);
+                channelDecorator.Channel.BasicPublish(exchange: ExchangeName,
+                                                  routingKey: QueueName,
+                                                  basicProperties: props,
+                                                  body: bytes);
+            });
         }
     }
 }

@@ -10,17 +10,20 @@ namespace Polpware.MessagingService.RabbitMQImpl
     /// Thus, it resembles a RPC-like messaging pattern, underpinned by the dispatching service. 
     /// </summary>
     /// <typeparam name="TCall">Message to be sent out, while the replied message is an Object.</typeparam>
+    /// <typeparam name="TReturn">Return type</typeparam>
     public class DispatchingDerivedRPCService<TCall, TReturn> : DispatchingService<TCall>, IRPCLike<TCall, TReturn> 
         where TCall : class
         where TReturn: class
     {
-        private RPCInitHelper<TReturn> _RPCInitHelper;
-        private readonly string _replyQueue;
+        private RPCChannelFeature<TReturn> _RPCChannelFeature;
 
         /// <summary>
         /// Constructor
         /// </summary>
-        /// <param name="connectionFactory">RabbitMQ-specific connection factory</param>
+        /// <param name="connectionPool">Connection pool</param>
+        /// <param name="channelPool">Channel pool</param>
+        /// <param name="connectionName">Connection name</param>
+        /// <param name="channelName">Channel name</param>
         /// <param name="exchange">Exchange name</param>
         /// <param name="settings">A set of settings, such as  durable, persistent, exclusive, autoDelete, autoAck for queues. 
         /// Amongest them, durable, persistent, exclusive, and autoDelete are used to define the properties of queue,
@@ -35,19 +38,18 @@ namespace Polpware.MessagingService.RabbitMQImpl
             string replyQueue) : 
             base(connectionPool, channelPool, connectionName, channelName, exchange, settings)
         {
-            _replyQueue = replyQueue;
+            _RPCChannelFeature = new RPCChannelFeature<TReturn>(replyQueue);
         }
 
         public void SetReturnAdaptor(Func<object, TReturn> func)
         {
-            _RPCInitHelper.ReturnAdaptor = func;
+            _RPCChannelFeature.ReturnAdaptor = func;
         }
 
         public void SetReturnHandler(Action<TReturn> action)
         {
-            _RPCInitHelper.ReturnHandler = action;
+            _RPCChannelFeature.ReturnHandler = action;
         }
-
 
         protected override IBasicProperties BuildChannelProperties(ChannelDecorator channelDecorator)
         {
@@ -55,8 +57,8 @@ namespace Polpware.MessagingService.RabbitMQImpl
             {
                 var properties = that.Channel.CreateBasicProperties();
                 properties.Persistent = (bool)Settings["persistent"];
-                properties.CorrelationId = _RPCInitHelper.CorrelationId;
-                properties.ReplyTo = _RPCInitHelper.CallbackQueueName;
+                properties.CorrelationId = _RPCChannelFeature.CorrelationId;
+                properties.ReplyTo = _RPCChannelFeature.CallbackQueueName;
 
                 return properties;
             });
@@ -79,18 +81,18 @@ namespace Polpware.MessagingService.RabbitMQImpl
             {
 
                 EnsureExchangeDeclared(channelDecorator);
-                _RPCInitHelper.SetupCallback(channelDecorator);
+                _RPCChannelFeature.SetupCallback(channelDecorator);
 
                 var x = OutDataAdpator(data);
                 var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
 
 
                 // Set up listener
-                channelDecorator.Channel.BasicConsume(_RPCInitHelper.CallbackConsumer,
-                    queue: _RPCInitHelper.CallbackQueueName,
+                channelDecorator.Channel.BasicConsume(_RPCChannelFeature.CallbackConsumer,
+                    queue: _RPCChannelFeature.CallbackQueueName,
                     autoAck: true);
 
-                // Must call this after _RPCInitHelper
+                // Must call this after invoking SetupCallback
                 var props = BuildChannelProperties(channelDecorator);
                 channelDecorator.Channel.BasicPublish(exchange: ExchangeName,
                                      routingKey: routingKey,

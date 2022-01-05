@@ -3,7 +3,7 @@ using RabbitMQ.Client;
 
 namespace Polpware.MessagingService.RabbitMQImpl
 {
-    public interface IRpcChannelFeature
+    public interface IRPCChannelFeature
     {
         string CallbackQueueName { get; }
         string CorrelationId { get; }

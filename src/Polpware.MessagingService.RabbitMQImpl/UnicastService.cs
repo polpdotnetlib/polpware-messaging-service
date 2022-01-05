@@ -7,20 +7,26 @@ namespace Polpware.MessagingService.RabbitMQImpl
 {
     public class UnicastService<T> : AbstractConnection, IUnicastService<T> where T : class
     {
+        protected readonly string ExchangeName;
+        protected readonly string QueueName;
+
         protected IBasicProperties _props;
 
-        protected Func<T, object> _dataAdpator;
+        protected Func<T, object> OutDataAdpator;
 
-        public UnicastService(ConnectionFactory connectionFactory, string queue, IDictionary<string, object> settings) 
-            : base(connectionFactory, settings)
+        public UnicastService(IConnectionPool connectionPool,
+            IChannelPool channelPool,
+            string connectionName,
+            string channelName,
+            string exchange, 
+            string queue, 
+            IDictionary<string, object> settings) 
+            : base(connectionPool, channelPool, connectionName, channelName, settings)
         {
-            _dataAdpator = id => id;
+            OutDataAdpator = id => id;
 
-            existingConnection.QueueName = queue;
-            
-            Init();
-
-            PrepareProperties();
+            ExchangeName = exchange ?? "";
+            QueueName = queue;
         }
 
         /// <summary>
@@ -30,55 +36,52 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// <param name="f"></param>
         public void SetDataAdaptor<U>(Func<T, U> f) where U : class
         {
-            _dataAdpator = f;
+            OutDataAdpator = f;
         }
 
-        /// <summary>
-        /// Some initialization code before preparing properties.
-        /// </summary>
-        protected virtual void Init() { }
-
-        protected virtual void PrepareProperties()
+        protected override IBasicProperties BuildChannelProperties(ChannelDecorator channelDecorator)
         {
-            _props = existingConnection.Channel.CreateBasicProperties();
-            _props.Persistent = (bool)Settings["persistent"];
+            var p = channelDecorator.GetOrCreateProperties((that) =>
+            {
+                var properties = that.Channel.CreateBasicProperties();
+                properties.Persistent = (bool)Settings["persistent"];
+                return properties;
+            });
+
+            return p;
         }
+
+        protected override void EnsureExchangeDeclared(ChannelDecorator channelDecorator)
+        {
+            channelDecorator.EnsureExchangDeclared(that =>
+            {
+                // Otherwise, we use the default exchange ""
+                if (!string.IsNullOrEmpty(ExchangeName))
+                {
+                    that.Channel.ExchangeDeclare(ExchangeName, "direct");
+                }
+            });
+        }
+
 
         public virtual bool SendMessage(T data)
         {
-            try
+            return PublishSafely((channelDecorator) =>
             {
-                existingConnection.Channel.QueueDeclare(queue: existingConnection.QueueName,
-                    durable: (bool)Settings["durable"],
-                    exclusive: (bool)Settings["exclusive"],
-                    autoDelete: (bool)Settings["autoDelete"],
-                    arguments: null);
 
-                var x = _dataAdpator(data);
+                EnsureExchangeDeclared(channelDecorator);
+
+                var x = OutDataAdpator(data);
                 var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
 
-                existingConnection.Channel.BasicPublish(exchange: "",
-                                     routingKey: existingConnection.QueueName,
-                                     basicProperties: _props,
+                var props = BuildChannelProperties(channelDecorator);
+
+                channelDecorator.Channel.BasicPublish(exchange: ExchangeName,
+                                     routingKey: QueueName,
+                                     basicProperties: props,
                                      body: bytes);
-                return true;
-            }
-            catch (Exception e)
-            {
-                if (ReBuildConnection())
-                {
-                    return this.SendMessage(data);
-                }
-
-                throw new MessagingServiceException(e, 0, "");
-            }
-        }
-
-        public override bool ReBuildConnection()
-        {
-            var f = base.ReBuildConnection();
-            PrepareProperties();
-            return f;
+                // It is the consumer's responsibility to declare queue
+            });
         }
     }
 }

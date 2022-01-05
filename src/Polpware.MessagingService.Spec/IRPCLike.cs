@@ -28,6 +28,7 @@ namespace Polpware.MessagingService.Spec
         /// The callback needs to be set beforehand.
         /// </summary>
         /// <param name="data">Data to be sent</param>
+        /// <param name="options">Options</param>
         void Call(TCall data, params object[] options);
     }
 }

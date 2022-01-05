@@ -22,7 +22,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         // Is it possible that one connection is disposed???
         public bool IsDisposed { get; private set; }
 
-        public IRpcChannelFeature RpcChannelFeature { get; set; }
+        public IRPCChannelFeature RpcChannelFeature { get; set; }
 
         // todo: Do we need to consider thread-safe (parallel)?
         // todo: Maybe not, because a channel can only used in one place at a time.

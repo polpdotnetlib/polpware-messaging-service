@@ -4,7 +4,7 @@ using System;
 
 namespace Polpware.MessagingService.RabbitMQImpl
 {
-    public class RPCInitHelper<TReturn>: IRpcChannelFeature where TReturn : class
+    public class RPCChannelFeature<TReturn>: IRPCChannelFeature where TReturn : class
     {
         public string CallbackQueueName { get; private set; }
         public EventingBasicConsumer CallbackConsumer { get; private set; }
@@ -17,7 +17,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         private EventHandler<BasicDeliverEventArgs> _callbackDelegate;
         private bool _hooked;
 
-        public RPCInitHelper(string replyQueue)
+        public RPCChannelFeature(string replyQueue)
         {
             CallbackQueueName = replyQueue;
             _isAnonymousReplyQueue = string.IsNullOrEmpty(replyQueue);
