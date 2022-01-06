@@ -93,6 +93,19 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
         protected abstract void BuildOrBindQueue(ChannelDecorator channelDecorator);
 
+        // Default implementation for the subscription 
+        protected override IBasicProperties BuildChannelProperties(ChannelDecorator channelDecorator)
+        {
+            var p = channelDecorator.GetOrCreateProperties((that) =>
+            {
+                var properties = that.Channel.CreateBasicProperties();
+                properties.Persistent = (bool)Settings["persistent"];
+                return properties;
+            });
+
+            return p;
+        }
+
         public void Subscribe(Func<object, Tuple<TIn, TInter>> adaptor = null, Func<TIn, TInter, int> handler = null)
         {
             if (adaptor != null)
@@ -142,6 +155,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
                 EffectiveChannelDecorator = ChannelPool.Get(ChannelName, ConnectionName);
                 CallbackFeature.SetupCallback(EffectiveChannelDecorator);
 
+                EnsureExchangeDeclared(EffectiveChannelDecorator);
                 BuildOrBindQueue(EffectiveChannelDecorator);
 
                 EffectiveChannelDecorator.Channel.BasicConsume(queue: SubscriptionQueueName,

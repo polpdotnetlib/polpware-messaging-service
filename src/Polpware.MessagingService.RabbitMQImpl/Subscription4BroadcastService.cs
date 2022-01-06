@@ -18,12 +18,16 @@ namespace Polpware.MessagingService.RabbitMQImpl
         {
         }
 
-        protected override void BuildOrBindQueue(ChannelDecorator channelDecorator)
+        protected override void EnsureExchangeDeclared(ChannelDecorator channelDecorator)
         {
             channelDecorator.EnsureExchangDeclared((that) =>
             {
                 that.Channel.ExchangeDeclare(ExchangeName, "fanout");  // specify more params if needed, like "durable"
             });
+        }
+
+        protected override void BuildOrBindQueue(ChannelDecorator channelDecorator)
+        {
 
             channelDecorator.EnsureQueueBinded((that) =>
             {
