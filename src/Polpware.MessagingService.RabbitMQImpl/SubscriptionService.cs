@@ -97,7 +97,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
                         var payload = Runtime.Serialization.ByteConvertor.ByteArrayToObject(body.ToArray());
                         var data = InDataAdaptor(payload);
                         var code = InDataHandler(data.Item1, data.Item2);
-                        PostHandling(code, data.Item1, message);
+                        PostHandling(channelDecorator, code, data.Item1, message);
                     }
                     catch (Exception e)
                     {
@@ -121,13 +121,15 @@ namespace Polpware.MessagingService.RabbitMQImpl
                                 }, ret.Item2);
                             }
                         }
-
-                        // By default, reject but do not reenque
-                        NAckMessage(channelDecorator, new BasicNackEventArgs
+                        else
                         {
-                            DeliveryTag = message.DeliveryTag,
-                            Multiple = false
-                        }, false);
+                            // By default, reject but do not reenque
+                            NAckMessage(channelDecorator, new BasicNackEventArgs
+                            {
+                                DeliveryTag = message.DeliveryTag,
+                                Multiple = false
+                            }, false);
+                        }
                     }
                 };
                 callbackFeature.ShutdownHandler = (message) =>
@@ -209,10 +211,11 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// <summary>
         /// Defines whether we need to ack a message or not.
         /// </summary>
+        /// <param name="channelDecorator">Channel decorator</param>
         /// <param name="code">Processing result</param>
         /// <param name="data">Data</param>
         /// <param name="evt"></param>
-        protected abstract void PostHandling(int code, TIn data, BasicDeliverEventArgs evt);
+        protected abstract void PostHandling(ChannelDecorator channelDecorator, int code, TIn data, BasicDeliverEventArgs evt);
 
         /// <summary>
         /// Builds with an adaptor to process the incoming message.
