@@ -86,7 +86,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
             try
             {
-                RpcChannelFeature?.TearOffCallback();
+                RpcChannelFeature?.TearOffCallback(this);
                 Channel?.Close();
             }
             catch (Exception e)

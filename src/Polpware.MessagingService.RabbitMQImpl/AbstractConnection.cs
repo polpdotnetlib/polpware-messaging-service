@@ -129,7 +129,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
             {
                 get
                 {
-                    if (ReconnectionCounter > 10)
+                    if (ReconnectionCounter > 3)
                     {
                         return false;
                     }

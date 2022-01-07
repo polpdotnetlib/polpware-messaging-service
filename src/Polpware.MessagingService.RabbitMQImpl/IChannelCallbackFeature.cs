@@ -10,6 +10,6 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
         void SetupCallback(ChannelDecorator channelDecorator);
 
-        void TearOffCallback();
+        void TearOffCallback(ChannelDecorator channelDecorator);
     }
 }

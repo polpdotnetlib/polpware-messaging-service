@@ -64,11 +64,12 @@ namespace Polpware.MessagingService.RabbitMQImpl
             }
         }
 
-        public void TearOffCallback()
+        public void TearOffCallback(ChannelDecorator channelDecorator)
         {
             if (_hooked)
             {
                 CallbackConsumer.Received -= _callbackDelegate;
+                channelDecorator.RpcChannelFeature = null;
                 _hooked = false;
             }
         }

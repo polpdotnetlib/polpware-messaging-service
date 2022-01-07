@@ -47,19 +47,19 @@ namespace Polpware.MessagingService.RabbitMQImpl
             ReplyAdaptor = func;
         }
 
-        protected void SendReply(TIn data, BasicDeliverEventArgs evt)
+        protected void SendReply(ChannelDecorator channelDecorator, TIn data, BasicDeliverEventArgs evt)
         {
             // todo: Check the correctness
             if (ReplyAdaptor != null)
             {
-                var replyProps = EffectiveChannelDecorator.Channel.CreateBasicProperties();
+                var replyProps = channelDecorator.Channel.CreateBasicProperties();
                 replyProps.CorrelationId = evt.BasicProperties.CorrelationId;
 
                 var replyMessage = ReplyAdaptor(data);
 
                 var bytes = Polpware.Runtime.Serialization.ByteConvertor.ObjectToByteArray(replyMessage);
 
-                EffectiveChannelDecorator.Channel.BasicPublish(exchange: "",
+                channelDecorator.Channel.BasicPublish(exchange: "",
                     routingKey: evt.BasicProperties.ReplyTo,
                                      basicProperties: replyProps,
                                      body: bytes);

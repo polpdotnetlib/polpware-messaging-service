@@ -19,14 +19,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         protected Func<TIn, TInter, int> InDataHandler;
         protected Func<Exception, Tuple<bool, bool>> ExceptionHandler;
 
-        protected SubscriptionChannelFeature CallbackFeature;
-        // We use the following one to share between the hosting thread
-        // the thread performing the subscription task.
-        protected volatile ChannelDecorator EffectiveChannelDecorator;
-
         public string SubscriptionQueueName { get; protected set; }
-
-        protected ManualResetEvent ResetEvent = new ManualResetEvent(false);
 
         public SubscriptionService(IConnectionPool connectionPool,
             IChannelPool channelPool,
@@ -37,58 +30,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
             : base(connectionPool, channelPool, connectionName, channelName, settings)
         {
             ExchangeName = exchange;
-            InDataAdaptor = x => Tuple.Create<TIn, TInter>(x as TIn, null);
-
-            CallbackFeature = new SubscriptionChannelFeature();
-            // Set up for exceptions:
-            CallbackFeature.CallbackConsumer.Shutdown += (model, args) =>
-            {
-                // todo: any
-            };
-
-            CallbackFeature.DataHandler = (message) =>
-            {
-                try
-                {
-                    // todo: Deserialize into an object
-                    var body = message.Body;
-                    // todo: 
-                    var payload = Runtime.Serialization.ByteConvertor.ByteArrayToObject(body.ToArray());
-                    var data = InDataAdaptor(payload);
-                    var code = InDataHandler(data.Item1, data.Item2);
-                    PostHandling(code, data.Item1, message);
-                }
-                catch (Exception e)
-                {
-                    if (ExceptionHandler != null)
-                    {
-                        var ret = ExceptionHandler(e);
-                        if (ret.Item1)
-                        {
-                            AckMessage(new BasicAckEventArgs
-                            {
-                                DeliveryTag = message.DeliveryTag,
-                                Multiple = false
-                            });
-                        }
-                        else
-                        {
-                            NAckMessage(new BasicNackEventArgs
-                            {
-                                DeliveryTag = message.DeliveryTag,
-                                Multiple = false
-                            }, ret.Item2);
-                        }
-                    }
-
-                    // By default, reject but do not reenque
-                    NAckMessage(new BasicNackEventArgs
-                    {
-                        DeliveryTag = message.DeliveryTag,
-                        Multiple = false
-                    }, false);
-                }
-            };
+            InDataAdaptor = x => Tuple.Create<TIn, TInter>(x as TIn, null);   
         }
 
         protected abstract void BuildOrBindQueue(ChannelDecorator channelDecorator);
@@ -118,21 +60,10 @@ namespace Polpware.MessagingService.RabbitMQImpl
                 InDataHandler = handler;
             }
 
-            // Start to thread
-            new Thread(StartToListen).Start();
-            // Yield to other thread
-            Thread.Sleep(100);
-            ResetEvent.Set();
-        }
+            // cannot run a separate thread
+            // todo: why?
 
-        private void StartToListen()
-        {
-            while(true)
-            {
-                ResetEvent.WaitOne();
-
-                SubscribeInner();
-            }
+            SubscribeInner();
         }
 
         private void SubscribeInner()
@@ -147,22 +78,73 @@ namespace Polpware.MessagingService.RabbitMQImpl
             // wait for some time
             if (ReconnectionState.ReconnectionCounter > 0)
             {
+                // todo: Is this good?
                 Thread.Sleep(1000 * 60 * ReconnectionState.ReconnectionCounter * ReconnectionState.ReconnectionCounter);
             }
 
             try
             {
-                EffectiveChannelDecorator = ChannelPool.Get(ChannelName, ConnectionName);
-                CallbackFeature.SetupCallback(EffectiveChannelDecorator);
+                var channelDecorator = ChannelPool.Get(ChannelName, ConnectionName);
+                var callbackFeature = new SubscriptionChannelFeature();
+                // Set up some handlers
+                callbackFeature.DataHandler = (message) =>
+                {
+                    try
+                    {
+                        // todo: Deserialize into an object
+                        var body = message.Body;
+                        // todo: 
+                        var payload = Runtime.Serialization.ByteConvertor.ByteArrayToObject(body.ToArray());
+                        var data = InDataAdaptor(payload);
+                        var code = InDataHandler(data.Item1, data.Item2);
+                        PostHandling(code, data.Item1, message);
+                    }
+                    catch (Exception e)
+                    {
+                        if (ExceptionHandler != null)
+                        {
+                            var ret = ExceptionHandler(e);
+                            if (ret.Item1)
+                            {
+                                AckMessage(channelDecorator, new BasicAckEventArgs
+                                {
+                                    DeliveryTag = message.DeliveryTag,
+                                    Multiple = false
+                                });
+                            }
+                            else
+                            {
+                                NAckMessage(channelDecorator, new BasicNackEventArgs
+                                {
+                                    DeliveryTag = message.DeliveryTag,
+                                    Multiple = false
+                                }, ret.Item2);
+                            }
+                        }
 
-                EnsureExchangeDeclared(EffectiveChannelDecorator);
-                BuildOrBindQueue(EffectiveChannelDecorator);
+                        // By default, reject but do not reenque
+                        NAckMessage(channelDecorator, new BasicNackEventArgs
+                        {
+                            DeliveryTag = message.DeliveryTag,
+                            Multiple = false
+                        }, false);
+                    }
+                };
+                callbackFeature.ShutdownHandler = (message) =>
+                {
+                    // cannot restart 
+                    // this.SubscribeInner();
+                };
 
-                EffectiveChannelDecorator.Channel.BasicConsume(queue: SubscriptionQueueName,
+                callbackFeature.SetupCallback(channelDecorator);
+
+                EnsureExchangeDeclared(channelDecorator);
+                BuildOrBindQueue(channelDecorator);
+
+                channelDecorator.Channel.BasicConsume(queue: SubscriptionQueueName,
                     autoAck: (bool)Settings["autoAck"],
-                    consumer: CallbackFeature.CallbackConsumer);
+                    consumer: callbackFeature.CallbackConsumer);
 
-                ReconnectionState.Reset();
             }
             catch (UnexpectedConnectionDecoratorException)
             {
@@ -210,14 +192,14 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
         }
 
-        protected void AckMessage(BasicAckEventArgs message)
+        protected void AckMessage(ChannelDecorator channelDecorator, BasicAckEventArgs message)
         {
-            EffectiveChannelDecorator?.Channel.BasicAck(deliveryTag: message.DeliveryTag, multiple: message.Multiple);
+            channelDecorator.Channel.BasicAck(deliveryTag: message.DeliveryTag, multiple: message.Multiple);
         }
 
-        protected void NAckMessage(BasicNackEventArgs message, bool requeue)
+        protected void NAckMessage(ChannelDecorator channelDecorator, BasicNackEventArgs message, bool requeue)
         {
-            EffectiveChannelDecorator?.Channel.BasicNack(deliveryTag: message.DeliveryTag, multiple: message.Multiple, requeue: requeue);
+            channelDecorator.Channel.BasicNack(deliveryTag: message.DeliveryTag, multiple: message.Multiple, requeue: requeue);
         }
 
         /// <summary>
@@ -251,6 +233,6 @@ namespace Polpware.MessagingService.RabbitMQImpl
             ExceptionHandler = handler;
         }
 
-        public bool IsOperating => EffectiveChannelDecorator != null ? EffectiveChannelDecorator.Channel.IsOpen : false;
+        public bool IsOperating => ReconnectionState.CanReconnect;
     }
 }
