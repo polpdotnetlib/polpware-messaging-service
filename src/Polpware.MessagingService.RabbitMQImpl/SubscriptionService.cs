@@ -132,8 +132,12 @@ namespace Polpware.MessagingService.RabbitMQImpl
                 };
                 callbackFeature.ShutdownHandler = (message) =>
                 {
-                    // cannot restart 
-                    // this.SubscribeInner();
+                    // cannot restart
+                    if (message.ReplyCode != 200)
+                    {
+                        ReconnectionState.BumpCounter();
+                        this.SubscribeInner();
+                    }
                 };
 
                 callbackFeature.SetupCallback(channelDecorator);
