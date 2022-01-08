@@ -53,7 +53,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
         protected override IBasicProperties BuildChannelProperties(ChannelDecorator channelDecorator)
         {
-            var p = channelDecorator.GetOrCreateProperties((that) =>
+            var pp = channelDecorator.GetOrCreateProperties((that) =>
             {
                 var properties = that.Channel.CreateBasicProperties();
                 properties.Persistent = (bool)Settings["persistent"];
@@ -63,7 +63,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
                 return properties;
             });
 
-            return p;
+            return pp;
         }
 
         public void Call(TCall data, params object[] options)
@@ -76,6 +76,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
         public override bool DispatchMessage(TCall data, string routingKey)
         {
+            routingKey = routingKey.ToUpper();
 
             return PublishSafely((channelDecorator) =>
             {
@@ -91,10 +92,10 @@ namespace Polpware.MessagingService.RabbitMQImpl
                         exclusive: (bool)Settings["exclusive"],
                         autoDelete: (bool)Settings["autoDelete"]);
 
-                    // We do not have any routingKey, as this queue is dedicated for callback.
+                    // Routing key must agree with callback queue name.
                     that.Channel.QueueBind(queue: _RPCChannelFeature.CallbackQueueName,
                              exchange: ExchangeName,
-                             routingKey: "");
+                             routingKey: _RPCChannelFeature.CallbackQueueName);
                 });
                 _RPCChannelFeature.SetupCallback(channelDecorator);
 
@@ -107,10 +108,11 @@ namespace Polpware.MessagingService.RabbitMQImpl
                 var x = OutDataAdpator(data);
                 var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
 
-                var props = BuildChannelProperties(channelDecorator);
+                var gg = BuildChannelProperties(channelDecorator);
+
                 channelDecorator.Channel.BasicPublish(exchange: ExchangeName,
                                      routingKey: routingKey,
-                                     basicProperties: Props,
+                                     basicProperties: gg,
                                      body: bytes);
             });
         }

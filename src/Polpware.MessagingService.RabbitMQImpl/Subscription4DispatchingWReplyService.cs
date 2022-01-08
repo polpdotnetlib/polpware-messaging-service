@@ -59,10 +59,10 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
                 var bytes = Polpware.Runtime.Serialization.ByteConvertor.ObjectToByteArray(replyMessage);
 
-                channelDecorator.Channel.BasicPublish(exchange: "",
+                channelDecorator.Channel.BasicPublish(exchange: ExchangeName,
                     routingKey: evt.BasicProperties.ReplyTo,
-                                     basicProperties: replyProps,
-                                     body: bytes);
+                    basicProperties: replyProps,
+                    body: bytes);
             }
         }
     }

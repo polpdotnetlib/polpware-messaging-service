@@ -28,7 +28,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         // todo: Do we need to consider thread-safe (parallel)?
         // todo: Maybe not, because a channel can only used in one place at a time.
         // Properties
-        private IBasicProperties _properties;
+        private IBasicProperties _properties = null;
         private bool _exchangeDeclared;
 
         private List<string> _boundQueues;
@@ -39,6 +39,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
             ConnectionName = connectionName;
             Name = name;
             IsOpen = true;
+            _boundQueues = new List<string>();
         }
 
         // Note that this method will not handle exceptions.
