@@ -24,7 +24,8 @@ namespace Polpware.MessagingService.RabbitMQImpl
             OutDataAdpator = id => id;
 
             ExchangeName = exchange ?? "";
-            QueueName = queue;
+            ExchangeName = ExchangeName.ToUpper();
+            QueueName = queue.ToUpper();
         }
 
         /// <summary>
