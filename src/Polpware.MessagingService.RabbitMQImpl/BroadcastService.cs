@@ -21,7 +21,8 @@ namespace Polpware.MessagingService.RabbitMQImpl
         {
             OutDataAdpator = x => x;
 
-            ExchangeName = exchange;
+            // Normlize
+            ExchangeName = exchange.ToUpper();
         }
 
         public void SetDataAdaptor<U>(Func<TOut, U> f) where U : class

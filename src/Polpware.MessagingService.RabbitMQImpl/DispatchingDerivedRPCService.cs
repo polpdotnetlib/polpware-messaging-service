@@ -81,18 +81,32 @@ namespace Polpware.MessagingService.RabbitMQImpl
             {
 
                 EnsureExchangeDeclared(channelDecorator);
+
+                // Set up callback queue
+                channelDecorator.EnsureQueueBinded(_RPCChannelFeature.CallbackQueueName, (that) =>
+                {
+
+                    that.Channel.QueueDeclare(_RPCChannelFeature.CallbackQueueName,
+                        durable: (bool)Settings["durable"],
+                        exclusive: (bool)Settings["exclusive"],
+                        autoDelete: (bool)Settings["autoDelete"]);
+
+                    // We do not have any routingKey, as this queue is dedicated for callback.
+                    that.Channel.QueueBind(queue: _RPCChannelFeature.CallbackQueueName,
+                             exchange: ExchangeName,
+                             routingKey: "");
+                });
                 _RPCChannelFeature.SetupCallback(channelDecorator);
 
-                var x = OutDataAdpator(data);
-                var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
-
-
                 // Set up listener
+                // Must call this after invoking SetupCallback
                 channelDecorator.Channel.BasicConsume(_RPCChannelFeature.CallbackConsumer,
                     queue: _RPCChannelFeature.CallbackQueueName,
                     autoAck: true);
 
-                // Must call this after invoking SetupCallback
+                var x = OutDataAdpator(data);
+                var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
+
                 var props = BuildChannelProperties(channelDecorator);
                 channelDecorator.Channel.BasicPublish(exchange: ExchangeName,
                                      routingKey: routingKey,

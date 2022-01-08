@@ -96,7 +96,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
                 ReconnectionState.BumpCounter();
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 ReconnectionState.BumpCounter();
             }

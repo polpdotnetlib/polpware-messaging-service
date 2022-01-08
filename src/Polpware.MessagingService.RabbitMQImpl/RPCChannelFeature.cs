@@ -13,15 +13,15 @@ namespace Polpware.MessagingService.RabbitMQImpl
         public Action<TReturn> ReturnHandler { get; set; }
         public string CorrelationId { get; }
 
-        private readonly bool _isAnonymousReplyQueue;
         private EventHandler<BasicDeliverEventArgs> _callbackDelegate;
         private bool _hooked;
 
         public RPCChannelFeature(string replyQueue)
         {
-            CallbackQueueName = replyQueue;
-            _isAnonymousReplyQueue = string.IsNullOrEmpty(replyQueue);
-            CorrelationId = Guid.NewGuid().ToString();
+            // Normlize
+            CallbackQueueName = string.IsNullOrEmpty(replyQueue) ? Guid.NewGuid().ToString().ToUpper() : replyQueue.ToUpper();
+
+            CorrelationId = Guid.NewGuid().ToString().ToUpper();
 
             ReturnAdaptor = x => x as TReturn;
 
@@ -49,12 +49,6 @@ namespace Polpware.MessagingService.RabbitMQImpl
         {
             if (!_hooked)
             {
-                if (_isAnonymousReplyQueue)
-                {
-                    // Create one
-                    CallbackQueueName = channelDecorator.Channel.QueueDeclare().QueueName;
-                }
-
                 // Create our consumer
                 CallbackConsumer = new EventingBasicConsumer(channelDecorator.Channel);
 

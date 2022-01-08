@@ -5,9 +5,6 @@ namespace Polpware.MessagingService.RabbitMQImpl
 {
     public interface IChannelCallbackFeature
     {
-        string CallbackQueueName { get; }
-        string CorrelationId { get; }
-
         void SetupCallback(ChannelDecorator channelDecorator);
 
         void TearOffCallback(ChannelDecorator channelDecorator);

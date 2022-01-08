@@ -22,20 +22,14 @@ namespace Polpware.MessagingService.RabbitMQImpl
         {
             OutDataAdpator = x => x;
 
-            ExchangeName = exchange;
-
-            Init();
+            // Normalize 
+            ExchangeName = exchange.ToUpper();
         }
 
         public void SetDataAdaptor<U>(Func<TOut, U> f) where U : class
         {
             OutDataAdpator = f;
         }
-
-        /// <summary>
-        /// Some initialization code before preparing properties.
-        /// </summary>
-        protected virtual void Init() { }
 
         /// <summary>
         /// Properties to be used for sending out messages.

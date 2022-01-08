@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace Polpware.MessagingService.RabbitMQImpl
 {
@@ -29,7 +30,8 @@ namespace Polpware.MessagingService.RabbitMQImpl
         // Properties
         private IBasicProperties _properties;
         private bool _exchangeDeclared;
-        private bool _queueBinded;
+
+        private List<string> _boundQueues;
 
         public ChannelDecorator(string name, IModel channel, string connectionName)
         {
@@ -68,12 +70,14 @@ namespace Polpware.MessagingService.RabbitMQImpl
             }
         }
 
-        public void EnsureQueueBinded(Action<ChannelDecorator> action)
+        public void EnsureQueueBinded(string queue, Action<ChannelDecorator> action)
         {
-            if (!_queueBinded)
+            // Normalize 
+            queue = queue.ToUpper();
+            if (!_boundQueues.Contains(queue))
             {
                 action.Invoke(this);
-                _queueBinded = true;
+                _boundQueues.Add(queue);
             }
         }
 

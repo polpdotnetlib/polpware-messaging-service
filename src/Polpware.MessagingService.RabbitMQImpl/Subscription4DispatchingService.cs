@@ -1,4 +1,5 @@
 ﻿using RabbitMQ.Client;
+using System;
 using System.Collections.Generic;
 
 namespace Polpware.MessagingService.RabbitMQImpl
@@ -28,8 +29,9 @@ namespace Polpware.MessagingService.RabbitMQImpl
             IDictionary<string, object> settings, string queue, string routingKey) 
             : base(connectionPool, channelPool, connectionName, channelName, exchange, settings)
         {
-            RoutingKey = routingKey;
-            SubscriptionQueueName = queue;
+            RoutingKey = routingKey.ToUpper();
+
+            SubscriptionQueueName = string.IsNullOrEmpty(queue) ? Guid.NewGuid().ToString().ToUpper() : queue.ToUpper();
         }
 
         protected override void EnsureExchangeDeclared(ChannelDecorator channelDecorator)
@@ -42,23 +44,12 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
         protected override void BuildOrBindQueue(ChannelDecorator channelDecorator)
         {
-            channelDecorator.EnsureQueueBinded((that) =>
+            channelDecorator.EnsureQueueBinded(SubscriptionQueueName, (that) =>
             {
-
-                if (string.IsNullOrEmpty(SubscriptionQueueName))
-                {
-                    SubscriptionQueueName = channelDecorator.Channel.QueueDeclare(durable: (bool)Settings["durable"],
-                        exclusive: (bool)Settings["exclusive"],
-                        autoDelete: (bool)Settings["autoDelete"])
-                    .QueueName;
-                }
-                else
-                {
-                    that.Channel.QueueDeclare(SubscriptionQueueName,
-                        durable: (bool)Settings["durable"],
-                        exclusive: (bool)Settings["exclusive"],
-                        autoDelete: (bool)Settings["autoDelete"]);
-                }
+                that.Channel.QueueDeclare(SubscriptionQueueName,
+                    durable: (bool)Settings["durable"],
+                    exclusive: (bool)Settings["exclusive"],
+                    autoDelete: (bool)Settings["autoDelete"]);
 
                 that.Channel.QueueBind(queue: SubscriptionQueueName,
                          exchange: ExchangeName,

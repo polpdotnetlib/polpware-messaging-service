@@ -6,11 +6,9 @@ namespace Polpware.MessagingService.RabbitMQImpl
 {
     public class SubscriptionChannelFeature: IChannelCallbackFeature
     {
-        public string CallbackQueueName { get; private set; }
         public EventingBasicConsumer CallbackConsumer { get; private set; }
 
         public Action<BasicDeliverEventArgs> DataHandler { get; set; }
-        public string CorrelationId { get; }
 
         public Action<ShutdownEventArgs> ShutdownHandler { get; set; }
 
@@ -20,9 +18,6 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
         public SubscriptionChannelFeature()
         {
-            CallbackQueueName = "";
-            CorrelationId = Guid.NewGuid().ToString();
-
             _callbackDelegate = (model, ea) =>
             {
                 DataHandler?.Invoke(ea);

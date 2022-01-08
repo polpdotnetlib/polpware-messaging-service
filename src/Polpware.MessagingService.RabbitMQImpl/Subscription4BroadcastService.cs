@@ -1,4 +1,5 @@
 ﻿using RabbitMQ.Client;
+using System;
 using System.Collections.Generic;
 
 namespace Polpware.MessagingService.RabbitMQImpl
@@ -7,7 +8,6 @@ namespace Polpware.MessagingService.RabbitMQImpl
         where TIn : class
         where TInter: class
     {
-
         public Subscription4BroadcastService(IConnectionPool connectionPool,
             IChannelPool channelPool,
             string connectionName,
@@ -16,6 +16,9 @@ namespace Polpware.MessagingService.RabbitMQImpl
             IDictionary<string, object> settings) 
             : base(connectionPool, channelPool, connectionName, channelName, exchange, settings)
         {
+            // A queue to accept any message
+            // Normlize 
+            SubscriptionQueueName = Guid.NewGuid().ToString().ToUpper();
         }
 
         protected override void EnsureExchangeDeclared(ChannelDecorator channelDecorator)
@@ -29,11 +32,11 @@ namespace Polpware.MessagingService.RabbitMQImpl
         protected override void BuildOrBindQueue(ChannelDecorator channelDecorator)
         {
 
-            channelDecorator.EnsureQueueBinded((that) =>
+            channelDecorator.EnsureQueueBinded(SubscriptionQueueName, (that) =>
             {
-                SubscriptionQueueName = channelDecorator.Channel.QueueDeclare(durable: (bool)Settings["durable"],
+                channelDecorator.Channel.QueueDeclare(durable: (bool)Settings["durable"],
                         exclusive: (bool)Settings["exclusive"],
-                        autoDelete: (bool)Settings["autoDelete"]).QueueName;
+                        autoDelete: (bool)Settings["autoDelete"]);
 
                 that.Channel.QueueBind(queue: SubscriptionQueueName,
                          exchange: ExchangeName,

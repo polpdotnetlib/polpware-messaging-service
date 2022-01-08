@@ -29,7 +29,8 @@ namespace Polpware.MessagingService.RabbitMQImpl
             IDictionary<string, object> settings)
             : base(connectionPool, channelPool, connectionName, channelName, settings)
         {
-            ExchangeName = exchange;
+            // Normlize exchange name
+            ExchangeName = exchange.ToUpper();
             InDataAdaptor = x => Tuple.Create<TIn, TInter>(x as TIn, null);   
         }
 
