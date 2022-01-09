@@ -57,6 +57,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
         public virtual bool DispatchMessage(TOut data, string routingKey)
         {
+            routingKey = routingKey.ToUpper();
 
             return PublishSafely((channelDecorator) =>
             {

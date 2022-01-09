@@ -34,7 +34,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
             channelDecorator.EnsureQueueBinded(SubscriptionQueueName, (that) =>
             {
-                channelDecorator.Channel.QueueDeclare(durable: (bool)Settings["durable"],
+                channelDecorator.Channel.QueueDeclare(SubscriptionQueueName, durable: (bool)Settings["durable"],
                         exclusive: (bool)Settings["exclusive"],
                         autoDelete: (bool)Settings["autoDelete"]);
 
