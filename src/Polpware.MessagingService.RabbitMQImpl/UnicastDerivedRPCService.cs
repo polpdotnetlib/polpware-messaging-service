@@ -23,6 +23,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         {
             _RPCChannelFeature = new RPCChannelFeature<TReturn>(replyQueue);
         }
+
         public void SetReturnAdaptor(Func<object, TReturn> func)
         {
             _RPCChannelFeature.ReturnAdaptor = func;
@@ -62,17 +63,31 @@ namespace Polpware.MessagingService.RabbitMQImpl
             {
 
                 EnsureExchangeDeclared(channelDecorator);
+
+                channelDecorator.EnsureQueueBinded(_RPCChannelFeature.CallbackQueueName, (that) =>
+                {
+
+                    that.Channel.QueueDeclare(_RPCChannelFeature.CallbackQueueName,
+                        durable: (bool)Settings["durable"],
+                        exclusive: (bool)Settings["exclusive"],
+                        autoDelete: (bool)Settings["autoDelete"]);
+
+                    // Routing key must agree with callback queue name.
+                    that.Channel.QueueBind(queue: _RPCChannelFeature.CallbackQueueName,
+                             exchange: ExchangeName,
+                             routingKey: _RPCChannelFeature.CallbackQueueName);
+                });
                 _RPCChannelFeature.SetupCallback(channelDecorator);
 
-                var x = OutDataAdpator(data);
-                var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
-
                 // Set up listener
+                // Must call this after invoking SetupCallback
                 channelDecorator.Channel.BasicConsume(_RPCChannelFeature.CallbackConsumer,
                     queue: _RPCChannelFeature.CallbackQueueName,
                     autoAck: true);
 
-                // Must call this after invoking SetupCallback
+                var x = OutDataAdpator(data);
+                var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
+
                 var props = BuildChannelProperties(channelDecorator);
                 channelDecorator.Channel.BasicPublish(exchange: ExchangeName,
                                                   routingKey: QueueName,

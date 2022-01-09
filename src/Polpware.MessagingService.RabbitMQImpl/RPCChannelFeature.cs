@@ -16,6 +16,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         private EventHandler<BasicDeliverEventArgs> _callbackDelegate;
         private bool _hooked;
 
+        // Typically, leave it as empty or null. So the system will generate a unique ...
         public RPCChannelFeature(string replyQueue)
         {
             // Normlize
