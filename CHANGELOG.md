@@ -1,3 +1,7 @@
+## 3.1.0 (February 14, 2022)
+  - Refine subscriber to support alternative constructors
+  - Version
+
 ## 3.0.0 (January 09, 2022)
   - Fix unicast/dispatching
   - Fix unicast
