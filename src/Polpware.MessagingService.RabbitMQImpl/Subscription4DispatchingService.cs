@@ -29,6 +29,17 @@ namespace Polpware.MessagingService.RabbitMQImpl
             IDictionary<string, object> settings, string queue, string routingKey) 
             : base(connectionPool, channelPool, connectionName, channelName, exchange, settings)
         {
+            SetQueueAndRoutingKey(queue, routingKey);
+        }
+
+        public Subscription4DispatchingService(IConnectionPool connectionPool,
+            IChannelPool channelPool)
+            : base(connectionPool, channelPool)
+        {
+        }
+
+        public void SetQueueAndRoutingKey(string queue, string routingKey)
+        {
             RoutingKey = routingKey.ToUpper();
 
             SubscriptionQueueName = string.IsNullOrEmpty(queue) ? Guid.NewGuid().ToString().ToUpper() : queue.ToUpper();

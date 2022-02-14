@@ -30,8 +30,20 @@ namespace Polpware.MessagingService.RabbitMQImpl
             : base(connectionPool, channelPool, connectionName, channelName, settings)
         {
             // Normlize exchange name
-            ExchangeName = exchange.ToUpper();
+            SetExchangeName(exchange);
             InDataAdaptor = x => Tuple.Create<TIn, TInter>(x as TIn, null);   
+        }
+
+        public SubscriptionService(IConnectionPool connectionPool,
+            IChannelPool channelPool)
+            : base(connectionPool, channelPool)
+        {
+            InDataAdaptor = x => Tuple.Create<TIn, TInter>(x as TIn, null);
+        }
+
+        public void SetExchangeName(string exchange)
+        {
+            ExchangeName = exchange.ToUpper();
         }
 
         protected abstract void BuildOrBindQueue(ChannelDecorator channelDecorator);

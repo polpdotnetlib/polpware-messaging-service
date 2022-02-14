@@ -13,7 +13,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         protected string ConnectionName { get; }
         protected string ChannelName { get; }
 
-        protected readonly IDictionary<string, object> Settings;
+        protected IDictionary<string, object> Settings;
 
         protected readonly ReconnectionTracker ReconnectionState;
 
@@ -30,6 +30,20 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
             ReconnectionState = new ReconnectionTracker();
 
+            UpdateSettings(settings);
+        }
+
+        public AbstractConnection(IConnectionPool connectionPool,
+            IChannelPool channelPool)
+        {
+            ConnectionPool = connectionPool;
+            ChannelPool = channelPool;
+
+            ReconnectionState = new ReconnectionTracker();
+        }
+
+        public void UpdateSettings(IDictionary<string, object> settings)
+        {
             // Ensuring settings are set
             Settings = settings ?? new Dictionary<string, object>();
             // Follow Json
@@ -41,6 +55,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
                 }
             }
         }
+
 
         protected abstract IBasicProperties BuildChannelProperties(ChannelDecorator channelDecorator);
 
