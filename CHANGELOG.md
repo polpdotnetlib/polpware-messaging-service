@@ -1,3 +1,7 @@
+## 3.1.1 (February 14, 2022)
+  - Refine the interface for subscriber
+  - Bump version
+
 ## 3.1.0 (February 14, 2022)
   - Refine subscriber to support alternative constructors
   - Version
