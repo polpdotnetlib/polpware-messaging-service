@@ -38,7 +38,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         {
         }
 
-        public void SetQueueAndRoutingKey(string queue, string routingKey)
+        protected void SetQueueAndRoutingKey(string queue, string routingKey)
         {
             RoutingKey = routingKey.ToUpper();
 

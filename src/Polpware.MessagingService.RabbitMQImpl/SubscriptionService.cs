@@ -41,7 +41,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
             InDataAdaptor = x => Tuple.Create<TIn, TInter>(x as TIn, null);
         }
 
-        public void SetExchangeName(string exchange)
+        protected void SetExchangeName(string exchange)
         {
             ExchangeName = exchange.ToUpper();
         }

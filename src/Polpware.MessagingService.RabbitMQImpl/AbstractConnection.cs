@@ -10,8 +10,8 @@ namespace Polpware.MessagingService.RabbitMQImpl
         protected IConnectionPool ConnectionPool { get; }
         protected IChannelPool ChannelPool { get; set; }
 
-        protected string ConnectionName { get; }
-        protected string ChannelName { get; }
+        protected string ConnectionName { get;  set; }
+        protected string ChannelName { get; set; }
 
         protected IDictionary<string, object> Settings;
 
@@ -42,7 +42,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
             ReconnectionState = new ReconnectionTracker();
         }
 
-        public void UpdateSettings(IDictionary<string, object> settings)
+        protected void UpdateSettings(IDictionary<string, object> settings)
         {
             // Ensuring settings are set
             Settings = settings ?? new Dictionary<string, object>();
