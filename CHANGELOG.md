@@ -1,3 +1,7 @@
+## 3.2.0 (February 15, 2022)
+  - Refine specification to support deserialization/serialization from object to json string back and forth
+  - bump version
+
 ## 3.1.2 (February 14, 2022)
   - Serializable
   - Update version
