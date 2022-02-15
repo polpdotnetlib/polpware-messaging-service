@@ -1,3 +1,7 @@
+## 3.1.2 (February 14, 2022)
+  - Serializable
+  - Update version
+
 ## 3.1.1 (February 14, 2022)
   - Refine the interface for subscriber
   - Bump version
