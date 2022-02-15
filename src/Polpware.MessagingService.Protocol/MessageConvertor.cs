@@ -90,12 +90,12 @@ namespace Polpware.MessagingService.Protocol
         {
             if (func != null)
             {
-                return func(container.body);
+                return func(container.ReadBody());
             }
 
-            if (container.body is MessageBody)
+            if (container.ReadBody() is MessageBody)
             {
-                var s = container.body as MessageBody;
+                var s = container.ReadBody() as MessageBody;
                 var t = s.ToTypeSafeObject<T, string>();
 
                 return t;

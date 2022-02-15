@@ -1,8 +1,8 @@
 ﻿namespace Polpware.MessagingService.Protocol
 {
-    public interface IMessageContainer : IAbstractMessage
+    public interface IMessageContainer : IMessageSection
     {
-        IMessageBody body { get; }
-        IMessageHead head { get; }
+        IMessageBody ReadBody();
+        IMessageHead ReadHead();
     }
 }

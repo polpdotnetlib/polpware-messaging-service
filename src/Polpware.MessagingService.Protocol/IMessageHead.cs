@@ -1,6 +1,6 @@
 ﻿namespace Polpware.MessagingService.Protocol
 {
-    public interface IMessageHead : IAbstractMessage
+    public interface IMessageHead : IMessageSection
     {
         string name { get; }
         string address { get; }

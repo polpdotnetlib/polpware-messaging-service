@@ -1,10 +1,14 @@
 ﻿namespace Polpware.MessagingService.Protocol.Visitors
 {
-    public class ChecksumGenerator : AbstractMessageVisitor
+    public class ChecksumGenerator : IMessageSectionVisitor
     {
-        public override bool Visit(IMessageContainer container)
+        public bool Visit(IMessageSection section)
         {
-            container.head.md5 = container.body.Md5();
+            if (section is IMessageHead)
+            {
+                var container = section as MessageContainer;
+                container.ReadHead().md5 = container.ReadBody().Md5();
+            }
             return true;
         }
     }

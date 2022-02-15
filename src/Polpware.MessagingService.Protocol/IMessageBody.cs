@@ -1,6 +1,6 @@
 ﻿namespace Polpware.MessagingService.Protocol
 {
-    public interface IMessageBody : IAbstractMessage
+    public interface IMessageBody : IMessageSection
     {
         string Md5();
     }

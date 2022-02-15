@@ -14,7 +14,7 @@ namespace Polpware.MessagingService.Protocol
         {
         }
 
-        public bool Accept(IMessageVisitor visitor)
+        public bool Accept(IMessageSectionVisitor visitor)
         {
             visitor.Visit(this);
             return true;

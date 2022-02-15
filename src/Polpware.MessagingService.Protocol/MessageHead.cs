@@ -11,7 +11,7 @@ namespace Polpware.MessagingService.Protocol
         public string md5 { get; set; }
         public string auth { get; set; }
 
-        public bool Accept(IMessageVisitor visitor)
+        public bool Accept(IMessageSectionVisitor visitor)
         {
             return visitor.Visit(this);
         }
