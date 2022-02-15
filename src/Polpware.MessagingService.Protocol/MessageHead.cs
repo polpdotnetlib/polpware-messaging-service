@@ -2,6 +2,7 @@
 
 namespace Polpware.MessagingService.Protocol
 {
+    [Serializable]
     public class MessageHead : IMessageHead
     {
         public string name { get; set; }

@@ -1,5 +1,8 @@
-﻿namespace Polpware.MessagingService.Protocol
+﻿using System;
+
+namespace Polpware.MessagingService.Protocol
 {
+    [Serializable]
     public class MessageContainer : IMessageContainer
     {
         public IMessageBody body { get; set; }

@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Polpware.MessagingService.Protocol
 {
+    [Serializable]
     public class MessageBody : Dictionary<string, string>, IMessageBody
     {
         public MessageBody()
