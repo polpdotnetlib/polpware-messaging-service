@@ -1,3 +1,7 @@
+## 3.3.0 (July 29, 2022)
+  - Remove the use of byte convertor as it is not safe
+  - Bump version
+
 ## 3.2.0 (February 15, 2022)
   - Refine specification to support deserialization/serialization from object to json string back and forth
   - bump version
