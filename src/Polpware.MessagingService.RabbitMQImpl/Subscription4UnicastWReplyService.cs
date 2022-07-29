@@ -6,13 +6,12 @@ using System.Collections.Generic;
 
 namespace Polpware.MessagingService.RabbitMQImpl
 {
-    public abstract class Subscription4UnicastWReplyService<TIn, TReply, TInter> : 
-        Subscription4UnicastService<TIn, TInter>, ISubscriptionWReplyService<TIn, TReply, TInter>
+    public abstract class Subscription4UnicastWReplyService<TIn, TInter> : 
+        Subscription4UnicastService<TIn, TInter>, ISubscriptionWReplyService<TIn, TInter>
         where TIn: class
-        where TReply: class
         where TInter: class
     {
-        protected Func<TIn, TReply> ReplyAdaptor;
+        protected Func<TIn, string> ReplyAdaptor;
 
         public Subscription4UnicastWReplyService(IConnectionPool connectionPool,
             IChannelPool channelPool,
@@ -31,7 +30,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// or it is preset in the constructor of the service.
         /// </summary>
         /// <param name="func">Function for generating the reply message</param>
-        public void SetReplyAdaptor(Func<TIn, TReply> func)
+        public void SetReplyAdaptor(Func<TIn, string> func)
         {
             ReplyAdaptor = func;
         }
@@ -45,7 +44,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
                 var replyMessage = ReplyAdaptor(data);
 
-                var bytes = Polpware.Runtime.Serialization.ByteConvertor.ObjectToByteArray(replyMessage);
+                var bytes = System.Text.Encoding.UTF8.GetBytes(replyMessage);
 
                 // todo: ????
                 channelDecorator.Channel.BasicPublish(exchange: ExchangeName,

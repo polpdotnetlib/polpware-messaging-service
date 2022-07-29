@@ -107,7 +107,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
                         // todo: Deserialize into an object
                         var body = message.Body;
                         // todo: 
-                        var payload = Runtime.Serialization.ByteConvertor.ByteArrayToObject(body.ToArray());
+                        var payload = System.Text.Encoding.UTF8.GetString(body.ToArray());
                         var data = InDataAdaptor(payload);
                         var code = InDataHandler(data.Item1, data.Item2);
                         PostHandling(channelDecorator, code, data.Item1, message);
@@ -203,11 +203,12 @@ namespace Polpware.MessagingService.RabbitMQImpl
                 ReconnectionState.BumpCounter();
                 SubscribeInner();
             }
+            /*
             catch (Exception e)
             {
                 ReconnectionState.BumpCounter();
                 SubscribeInner();
-            }
+            } */
 
         }
 

@@ -86,7 +86,8 @@ namespace Polpware.MessagingService.RabbitMQImpl
                     autoAck: true);
 
                 var x = OutDataAdpator(data);
-                var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
+
+                var bytes = System.Text.Encoding.UTF8.GetBytes(x);
 
                 var props = BuildChannelProperties(channelDecorator);
                 channelDecorator.Channel.BasicPublish(exchange: ExchangeName,

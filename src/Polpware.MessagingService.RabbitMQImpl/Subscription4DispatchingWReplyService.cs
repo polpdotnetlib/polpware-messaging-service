@@ -3,16 +3,16 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace Polpware.MessagingService.RabbitMQImpl
 {
-    public abstract class Subscription4DispatchingWReplyService<TIn, TReply, TInter> :
-        Subscription4DispatchingService<TIn, TInter>, ISubscriptionWReplyService<TIn, TReply, TInter>
+    public abstract class Subscription4DispatchingWReplyService<TIn, TInter> :
+        Subscription4DispatchingService<TIn, TInter>, ISubscriptionWReplyService<TIn, TInter>
         where TIn : class 
-        where TReply : class
         where TInter: class
     {
-        protected Func<TIn, TReply> ReplyAdaptor;
+        protected Func<TIn, string> ReplyAdaptor;
 
         /// <summary>
         /// Constructor
@@ -42,7 +42,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// or it is preset in the constructor of the service.
         /// </summary>
         /// <param name="func">Function for generating the reply message</param>
-        public void SetReplyAdaptor(Func<TIn, TReply> func)
+        public void SetReplyAdaptor(Func<TIn, string> func)
         {
             ReplyAdaptor = func;
         }
@@ -57,7 +57,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
 
                 var replyMessage = ReplyAdaptor(data);
 
-                var bytes = Polpware.Runtime.Serialization.ByteConvertor.ObjectToByteArray(replyMessage);
+                var bytes = Encoding.UTF8.GetBytes(replyMessage);
 
                 channelDecorator.Channel.BasicPublish(exchange: ExchangeName,
                     routingKey: evt.BasicProperties.ReplyTo,

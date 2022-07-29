@@ -66,7 +66,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
                 EnsureExchangeDeclared(channelDecorator);
 
                 var x = OutDataAdpator(data);
-                var bytes = Encoding.UTF8.GetBytes(x);
+                var bytes = System.Text.Encoding.UTF8.GetBytes(x);
 
                 var props = BuildChannelProperties(channelDecorator);
 

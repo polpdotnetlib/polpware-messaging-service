@@ -9,7 +9,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         public string CallbackQueueName { get; private set; }
         public EventingBasicConsumer CallbackConsumer { get; private set; }
 
-        public Func<object, TReturn> ReturnAdaptor { get; set; }
+        public Func<string, TReturn> ReturnAdaptor { get; set; }
         public Action<TReturn> ReturnHandler { get; set; }
         public string CorrelationId { get; }
 
@@ -34,7 +34,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
                 if (ea.BasicProperties.CorrelationId == CorrelationId)
                 {
                     // todo: 
-                    var payload = Runtime.Serialization.ByteConvertor.ByteArrayToObject(body.ToArray());
+                    var payload = System.Text.Encoding.UTF8.GetString(body.ToArray());
 
                     var data = ReturnAdaptor(payload);
                     ReturnHandler?.Invoke(data);
