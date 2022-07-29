@@ -2,6 +2,7 @@
 using RabbitMQ.Client;
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace Polpware.MessagingService.RabbitMQImpl
 {
@@ -10,7 +11,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         protected readonly string ExchangeName;
         protected readonly string QueueName;
 
-        protected Func<T, object> OutDataAdpator;
+        protected Func<T, string> OutDataAdpator;
 
         public UnicastService(IConnectionPool connectionPool,
             IChannelPool channelPool,
@@ -21,8 +22,6 @@ namespace Polpware.MessagingService.RabbitMQImpl
             IDictionary<string, object> settings) 
             : base(connectionPool, channelPool, connectionName, channelName, settings)
         {
-            OutDataAdpator = id => id;
-
             ExchangeName = exchange ?? "";
             ExchangeName = ExchangeName.ToUpper();
             QueueName = queue.ToUpper();
@@ -33,7 +32,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// an object of another type.
         /// </summary>
         /// <param name="f"></param>
-        public void SetDataAdaptor<U>(Func<T, U> f) where U : class
+        public void SetDataAdaptor(Func<T, string> f)
         {
             OutDataAdpator = f;
         }
@@ -71,7 +70,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
                 EnsureExchangeDeclared(channelDecorator);
 
                 var x = OutDataAdpator(data);
-                var bytes = Runtime.Serialization.ByteConvertor.ObjectToByteArray(x);
+                var bytes = Encoding.UTF8.GetBytes(x);
 
                 var props = BuildChannelProperties(channelDecorator);
 
