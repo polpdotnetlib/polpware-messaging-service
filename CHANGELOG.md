@@ -1,3 +1,8 @@
+## 3.3.1 (July 29, 2022)
+  - Improve subscription service to expect string as input
+  - Fix bugs
+  - Bump version
+
 ## 3.3.0 (July 29, 2022)
   - Remove the use of byte convertor as it is not safe
   - Bump version
