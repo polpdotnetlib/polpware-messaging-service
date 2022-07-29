@@ -1,3 +1,6 @@
+## 3.4.0 (July 29, 2022)
+  - k
+
 ## 3.3.1 (July 29, 2022)
   - Improve subscription service to expect string as input
   - Fix bugs
