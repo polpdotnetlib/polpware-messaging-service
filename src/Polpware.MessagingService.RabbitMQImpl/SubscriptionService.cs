@@ -15,7 +15,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
     {
         public string ExchangeName { get; private set; }
 
-        protected Func<object, Tuple<TIn, TInter>> InDataAdaptor;
+        protected Func<string, Tuple<TIn, TInter>> InDataAdaptor;
         protected Func<TIn, TInter, int> InDataHandler;
         protected Func<Exception, Tuple<bool, bool>> ExceptionHandler;
 
@@ -235,7 +235,7 @@ namespace Polpware.MessagingService.RabbitMQImpl
         /// Builds with an adaptor to process the incoming message.
         /// </summary>
         /// <param name="adaptor">Function to translate the incoming message.</param>
-        public void SetDataAdaptor(Func<object, Tuple<TIn, TInter>> adaptor)
+        public void SetDataAdaptor(Func<string, Tuple<TIn, TInter>> adaptor)
         {
             InDataAdaptor = adaptor;
         }

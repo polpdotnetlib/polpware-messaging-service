@@ -22,7 +22,7 @@ namespace Polpware.MessagingService.Spec
         /// </summary>
         /// <param name="adaptor">Function to translate the incoming message into a type-safe object.</param>
         /// <returns>Service</returns>
-        void SetDataAdaptor(Func<object, Tuple<TIn, TInter>> adaptor);
+        void SetDataAdaptor(Func<string, Tuple<TIn, TInter>> adaptor);
 
         /// <summary>
         /// Sets the callback
