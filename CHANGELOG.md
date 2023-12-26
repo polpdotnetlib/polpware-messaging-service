@@ -1,3 +1,7 @@
+## 7.0.0 (December 26, 2023)
+  - Updated dependencies
+  - k
+
 ## 3.4.0 (July 29, 2022)
   - k
 
