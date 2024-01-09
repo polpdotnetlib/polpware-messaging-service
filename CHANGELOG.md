@@ -1,3 +1,7 @@
+## 8.0.0 (January 09, 2024)
+  - Updated packages
+  - Bumped version
+
 ## 7.0.0 (December 26, 2023)
   - Updated dependencies
   - k
